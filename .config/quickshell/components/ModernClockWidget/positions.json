@@ -2221,7 +2221,8 @@
     "y": 0,
     "daySize": 90,
     "dateSize": 25,
-    "timeSize": 22
+    "timeSize": 22,
+    "textColor": "#ffffff"
   },
   "sleepy-wooper-in-the-grass-pokemon-emerald-moewalls-com": {
     "enabled": false,

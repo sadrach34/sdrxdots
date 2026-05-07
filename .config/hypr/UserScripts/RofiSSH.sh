@@ -9,7 +9,7 @@ rofi_theme="$HOME/.config/rofi/config-rofi-ssh.rasi"
 
 # Datos del servidor (tu laptop)
 SERVER_USER="sadrach"
-SERVER_IP="192.168.1.5"
+SERVER_IP="192.168.1.51"
 SERVER_PORT="22"
 SERVER_NAME="Mi Laptop"
 

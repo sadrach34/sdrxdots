@@ -8,6 +8,7 @@
     "y": 800,
     "daySize": 90,
     "dateSize": 25,
-    "timeSize": 22
+    "timeSize": 22,
+    "textColor": "#ffffff"
   }
 }

@@ -183,3 +183,8 @@ export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
 
 alias claude-mem='/home/sadrach/.bun/bin/bun "/home/sadrach/.claude/plugins/marketplaces/thedotmack/plugin/scripts/worker-service.cjs"'
+
+alias chadl='npx chadsay "linux > windows"'
+chadsay() {
+    npx chadsay "$@"
+}
