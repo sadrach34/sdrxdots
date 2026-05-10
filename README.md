@@ -7,9 +7,11 @@
                                   ╚════██║██║  ██║██╔══██╗ ██╔██╗ 
                                   ███████║██████╔╝██║  ██║██╔╝ ██╗
                                   ╚══════╝╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝
+                                  SDRX Digital Runtime eXperience
 ``` -->
 
-# sadrach34 / SdrxDots
+# sadrach34 / SDRX-Dots
+SDRX Digital Runtime eXperience
 
 **Hyprland · Arch Linux** — personal configuration for real-world use.
 
