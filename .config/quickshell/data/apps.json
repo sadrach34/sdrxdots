@@ -2,7 +2,7 @@
   "_comment": "App customization for the launcher and window switcher. Each key is matched case-insensitively against the .desktop Name field.",
   "_usage": "Each value is an object with optional fields: background (image path), icon (nerd font glyph), displayName (custom name shown in UI), hidden (true to hide from launcher), tags (space-separated searchable tags).",
   "about xfce": {
-    "icon": "󰀄",
+    "icon": "\udb80\udc04",
     "background": "~/Documentos/Apps(NOBORRAR)/asdd.jpg"
   },
   "advanced network configuration": {
@@ -22,11 +22,11 @@
   "bitwarden": {},
   "blender": {},
   "bluetooth adapters": {
-    "icon": "󰂰",
+    "icon": "\udb80\udcb0",
     "background": "~/dotfiles/.config/quickshell/images/apps/bluetooth.webp"
   },
   "bluetooth manager": {
-    "icon": "󰂯",
+    "icon": "\udb80\udcaf",
     "background": "~/dotfiles/.config/quickshell/images/apps/bluetooth.webp"
   },
   "borderlands goty enhanced": {},
@@ -35,11 +35,11 @@
   "cairo-dock": {},
   "cairo-dock (fallback mode)": {},
   "cmake": {},
-  "dark souls™ ii: scholar of the first sin": {},
-  "dark souls™: remastered": {},
+  "dark souls\u2122 ii: scholar of the first sin": {},
+  "dark souls\u2122: remastered": {},
   "discord": {
     "background": "~/.config/quickshell/images/apps/discord.webp",
-    "icon": "󰙯",
+    "icon": "\udb81\ude6f",
     "displayName": "Totally Not Discord",
     "tags": [
       "chat voice call kitten"
@@ -49,11 +49,12 @@
   "dolphin": {},
   "easy effects": {},
   "eden emulador": {},
+  "edex-ui": {},
   "elden ring": {},
   "electron 37": {},
   "fallout 4": {},
   "firefox": {
-    "icon": "󰈹",
+    "icon": "\udb80\ude39",
     "displayName": "Firefox",
     "tags": [
       "browser web"
@@ -70,7 +71,7 @@
   "hollow knight: silksong": {},
   "htop": {},
   "icon browser": {},
-  "idle slayer – incremental rpg": {},
+  "idle slayer \u2013 incremental rpg": {},
   "image viewer": {},
   "immortal redneck": {},
   "insomnia": {},
@@ -93,6 +94,7 @@
   "mongodb compass": {},
   "mousepad": {},
   "mpv media player": {},
+  "nier:automata\u2122": {},
   "nvtop": {},
   "obs studio": {
     "background": "~/dotfiles/.config/quickshell/images/apps/obs.webp"
@@ -101,8 +103,8 @@
   "onlyoffice": {},
   "openjdk java 26 console": {},
   "openjdk java 26 shell": {},
-  "overwatch®": {},
-  "overwatch® 2": {},
+  "overwatch\u00ae": {},
+  "overwatch\u00ae 2": {},
   "photogimp": {},
   "piper": {},
   "postman": {},
@@ -143,7 +145,7 @@
   "uuctl": {},
   "vim": {},
   "visual studio code": {
-    "icon": "󰨞",
+    "icon": "\udb82\ude1e",
     "background": "~/dotfiles/.config/quickshell/images/apps/vscode.jpg"
   },
   "vlc media player": {},
