@@ -108,7 +108,7 @@ ShellRoot {
         function open() { root.openWallpaperPicker() }
         function close() { root.closeWallpaperPicker() }
     }
-    // ── Screenshot tool (Win+S) ───────────────────────────────────────────────
+    // ── Screenshot tool (Win+Shift+S) ─────────────────────────────────────────
     // ScreenshotTool se crea al activarse y se destruye al cerrar (active: SsState.screenshotToolVisible)
     // ScreenshotOverlay siempre cargado para recibir la señal onImageSaved
     Variants {
@@ -140,7 +140,8 @@ ShellRoot {
         function toggle() { SsState.screenshotToolVisible = !SsState.screenshotToolVisible }
     }
 
-    // ── Grabación de pantalla (Win+R) ─────────────────────────────────────────
+    // ── Grabación de pantalla ─────────────────────────────────────────────────
+    // Se abre manualmente desde el panel de screenshot; no hay atajo directo activo.
     // ScreenrecordTool siempre cargado; open()/close() se llaman por IPC.
     Loader {
         id: screenRecordLoader

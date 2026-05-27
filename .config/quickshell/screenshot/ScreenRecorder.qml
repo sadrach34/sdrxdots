@@ -6,7 +6,7 @@ import Quickshell.Io
 
 // Copia de sadrach34/modules/services/ScreenRecorder.qml
 // Única diferencia: SuspendManager.isSuspending eliminado (no existe en este módulo)
-// El statusTimer corre siempre para detectar instancias externas de gpu-screen-recorder
+// El statusTimer corre siempre para detectar instancias externas reales de gpu-screen-recorder.
 
 QtObject {
     id: root
@@ -15,6 +15,7 @@ QtObject {
     property string duration: ""
     property string lastError: ""
     property bool canRecordDirectly: true
+    readonly property string findRecorderPidCommand: "for p in /proc/[0-9]*; do exe=$(basename \"$(readlink -f \"$p/exe\" 2>/dev/null)\" 2>/dev/null); if [ \"$exe\" = gpu-screen-recorder ]; then echo \"${p##*/}\"; exit 0; fi; done; exit 1"
 
     property Process checkCapabilitiesProcess: Process {
         id: checkCapabilitiesProcess
@@ -45,7 +46,7 @@ QtObject {
         }
     }
 
-    // Polling: detecta si gpu-screen-recorder está corriendo
+    // Polling: detecta solo el proceso real de gpu-screen-recorder.
     property Timer statusTimer: Timer {
         interval: 1000
         repeat: true
@@ -57,7 +58,7 @@ QtObject {
 
     property Process checkProcess: Process {
         id: checkProcess
-        command: ["bash", "-c", "pgrep -f 'gpu-screen-recorder' | grep -v $$ > /dev/null"]
+        command: ["bash", "-c", root.findRecorderPidCommand + " >/dev/null"]
         onExited: exitCode => {
             var wasRecording = root.isRecording;
             root.isRecording = (exitCode === 0);
@@ -71,7 +72,7 @@ QtObject {
 
     property Process timeProcess: Process {
         id: timeProcess
-        command: ["bash", "-c", "pid=$(pgrep -f 'gpu-screen-recorder' | head -n 1); if [ -n \"$pid\" ]; then ps -o etime= -p \"$pid\"; fi"]
+        command: ["bash", "-c", "pid=$(" + root.findRecorderPidCommand + "); if [ -n \"$pid\" ]; then ps -o etime= -p \"$pid\"; fi"]
         stdout: StdioCollector {
             onTextChanged: {
                 root.duration = text.trim();
@@ -174,7 +175,7 @@ QtObject {
 
     property Process stopProcess: Process {
         id: stopProcess
-        command: ["pkill", "-SIGINT", "-f", "gpu-screen-recorder"]
+        command: ["bash", "-c", "for p in /proc/[0-9]*; do exe=$(basename \"$(readlink -f \"$p/exe\" 2>/dev/null)\" 2>/dev/null); if [ \"$exe\" = gpu-screen-recorder ]; then kill -SIGINT \"${p##*/}\"; fi; done"]
     }
 
     function stopRecording() {
