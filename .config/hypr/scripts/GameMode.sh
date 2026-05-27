@@ -80,54 +80,60 @@ stop_wallpaper_stack_full() {
 }
 
 restore_wallpaper_once() {
-    state_type=""
-    state_path=""
-    state_we_id=""
+    local monitors=()
+    mapfile -t monitors < <(hyprctl monitors -j 2>/dev/null | jq -r '.[].name' 2>/dev/null || true)
 
-    if [ -f "$SKWD_STATE_FILE" ] && command -v jq >/dev/null 2>&1; then
-        state_type="$(jq -r '.type // empty' "$SKWD_STATE_FILE" 2>/dev/null || true)"
-        state_path="$(jq -r '.path // empty' "$SKWD_STATE_FILE" 2>/dev/null || true)"
-        state_we_id="$(jq -r '.we_id // empty' "$SKWD_STATE_FILE" 2>/dev/null || true)"
-    fi
-
-    case "$state_type" in
-        video)
-            if [ -n "$state_path" ] && [ -x "$WALLPAPER_APPLY_SCRIPT" ]; then
-                "$WALLPAPER_APPLY_SCRIPT" video "$state_path" >/dev/null 2>&1 || true
-                return
-            fi
-            ;;
-        we)
-            if [ -n "$state_we_id" ] && [ -x "$WALLPAPER_APPLY_SCRIPT" ]; then
-                "$WALLPAPER_APPLY_SCRIPT" we "$state_we_id" >/dev/null 2>&1 || true
-                return
-            fi
-            ;;
-        static)
-            if [ -n "$state_path" ]; then
-                current_wall="$state_path"
-            fi
-            ;;
-    esac
-
-    if [ ! -e "$WALLPAPER" ] && [ -z "${current_wall:-}" ]; then
+    if [ ${#monitors[@]} -eq 0 ]; then
         return
     fi
 
-    current_wall="$(readlink -f "${current_wall:-$WALLPAPER}" 2>/dev/null || true)"
-    if [ -z "$current_wall" ]; then
-        current_wall="${state_path:-$WALLPAPER}"
-    fi
-
-    if ! command -v awww >/dev/null 2>&1 || ! command -v awww-daemon >/dev/null 2>&1; then
+    local wall_cmd wall_daemon_cmd
+    if command -v awww >/dev/null 2>&1 && command -v awww-daemon >/dev/null 2>&1; then
+        wall_cmd="awww"; wall_daemon_cmd="awww-daemon"
+    elif command -v swww >/dev/null 2>&1 && command -v swww-daemon >/dev/null 2>&1; then
+        wall_cmd="swww"; wall_daemon_cmd="swww-daemon"
+    else
         return
     fi
 
-    if ! pgrep -x awww-daemon >/dev/null; then
-        nohup setsid awww-daemon >/dev/null 2>&1 &
+    if ! pgrep -x "$wall_daemon_cmd" >/dev/null; then
+        nohup setsid "$wall_daemon_cmd" >/dev/null 2>&1 &
         sleep 0.5
     fi
-    awww img "$current_wall" >/dev/null 2>&1 || true
+
+    local mon sf s_type s_path s_we_id
+    for mon in "${monitors[@]}"; do
+        [ -z "$mon" ] && continue
+        sf="$HOME/.cache/skwd-wall/last-wallpaper-${mon}.json"
+        [ ! -f "$sf" ] && sf="$SKWD_STATE_FILE"
+        [ ! -f "$sf" ] && continue
+
+        s_type="$(jq -r '.type // empty' "$sf" 2>/dev/null || true)"
+        s_path="$(jq -r '.path // empty' "$sf" 2>/dev/null || true)"
+        s_we_id="$(jq -r '.we_id // empty' "$sf" 2>/dev/null || true)"
+
+        case "$s_type" in
+            video)
+                if [ -n "$s_path" ] && [ -x "$WALLPAPER_APPLY_SCRIPT" ]; then
+                    WALL_OUTPUT="$mon" "$WALLPAPER_APPLY_SCRIPT" video "$s_path" >/dev/null 2>&1 || true
+                fi
+                ;;
+            we)
+                if [ -n "$s_we_id" ] && [ -x "$WALLPAPER_APPLY_SCRIPT" ]; then
+                    WALL_OUTPUT="$mon" "$WALLPAPER_APPLY_SCRIPT" we "$s_we_id" >/dev/null 2>&1 || true
+                fi
+                ;;
+            static)
+                if [ -n "$s_path" ] && [ -f "$s_path" ]; then
+                    "$wall_cmd" img -o "$mon" "$s_path" >/dev/null 2>&1 || true
+                elif [ -e "$WALLPAPER" ]; then
+                    local fw
+                    fw="$(readlink -f "$WALLPAPER" 2>/dev/null || true)"
+                    [ -n "$fw" ] && "$wall_cmd" img -o "$mon" "$fw" >/dev/null 2>&1 || true
+                fi
+                ;;
+        esac
+    done
 }
 
 start_quickshell_if_needed() {

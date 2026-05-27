@@ -227,6 +227,12 @@ set_startup_mode_video() {
 set_startup_mode_image() {
   [[ -f "$STARTUP" ]] || return 0
 
+  # Skip if mpvpaper exec-once is already commented — avoids spurious Hyprland reloads
+  # (called once per monitor when using per-monitor wallpaper scripts)
+  if ! grep -qE '^[[:space:]]*exec-once[[:space:]]*=[[:space:]]*mpvpaper' "$STARTUP" 2>/dev/null; then
+    return 0
+  fi
+
   sed -Ei 's|^[[:space:]]*#[[:space:]]*(exec-once[[:space:]]*=[[:space:]]*swww-daemon[[:space:]]+--format[[:space:]]+xrgb[[:space:]]*)$|\1|' "$STARTUP" 2>/dev/null
   sed -Ei 's|^([[:space:]]*)exec-once[[:space:]]*=[[:space:]]*mpvpaper.*$|#\0|' "$STARTUP" 2>/dev/null
 }
@@ -314,9 +320,8 @@ kill_for_image() {
   stop_we_engine
   if [[ -n "$WALL_OUTPUT" ]]; then
     pkill -f "mpvpaper[[:space:]]+${WALL_OUTPUT}([[:space:]]|$)" 2>/dev/null || true
-  else
-    stop_video_wallpaper
   fi
+  stop_video_wallpaper
   pkill swaybg 2>/dev/null
   pkill hyprpaper 2>/dev/null
 }
@@ -406,7 +411,7 @@ else
   ln -sf "$FILE" "$WALLPAPER_CURRENT" 2>/dev/null
   ln -sf "$FILE" "$HOME/.config/rofi/.current_wallpaper" 2>/dev/null
   write_skwd_state "static"
-  [[ -z "$WALL_OUTPUT" ]] && set_startup_mode_image
+  set_startup_mode_image
 fi
 
 # set_startup_mode_* modifica Startup_Apps.conf → Hyprland recarga → pierde keyword overrides.

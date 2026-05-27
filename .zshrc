@@ -188,3 +188,7 @@ alias chadl='npx chadsay "linux > windows"'
 chadsay() {
     npx chadsay "$@"
 }
+
+alias ed='edex-ui'
+alias beat='python3 ~/.config/hypr/scripts/SDRX-Beat/main.py'
+alias sdrx-beat='python3 ~/.config/hypr/scripts/SDRX-Beat/main.py '
