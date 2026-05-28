@@ -14,6 +14,7 @@ WALL_OUTPUT="${WALL_OUTPUT:-}"
 WALLPAPER_CURRENT="$HOME/.config/hypr/wallpaper_effects/.wallpaper_current"
 STARTUP="$HOME/.config/hypr/UserConfigs/Startup_Apps.conf"
 SKWD_STATE_FILE="$HOME/.cache/skwd-wall/last-wallpaper${WALL_OUTPUT:+-$WALL_OUTPUT}.json"
+SKWD_GLOBAL_STATE_FILE="$HOME/.cache/skwd-wall/last-wallpaper.json"
 LOCK_DIR="$HOME/.cache/hypr/wallpaper-apply.lock.d"
 SKWD_CONFIG_FILE="$HOME/.config/skwd-wall/config.json"
 DEFAULT_WE_DIR="$HOME/.local/share/Steam/steamapps/workshop/content/431960"
@@ -111,6 +112,15 @@ write_skwd_state() {
     jq -n --arg type "$state_type" --arg path "$FILE" '{type:$type,path:$path}' > "$SKWD_STATE_FILE"
   else
     printf '{"type":"%s","path":"%s"}\n' "$state_type" "$FILE" > "$SKWD_STATE_FILE"
+  fi
+}
+
+write_global_skwd_state() {
+  local state_type="$1"
+  if command -v jq >/dev/null 2>&1; then
+    jq -n --arg type "$state_type" --arg path "$FILE" '{type:$type,path:$path}' > "$SKWD_GLOBAL_STATE_FILE"
+  else
+    printf '{"type":"%s","path":"%s"}\n' "$state_type" "$FILE" > "$SKWD_GLOBAL_STATE_FILE"
   fi
 }
 
@@ -227,10 +237,8 @@ set_startup_mode_video() {
 set_startup_mode_image() {
   [[ -f "$STARTUP" ]] || return 0
 
-  # Skip if mpvpaper exec-once is already commented — avoids spurious Hyprland reloads
-  # (called once per monitor when using per-monitor wallpaper scripts)
-  if ! grep -qE '^[[:space:]]*exec-once[[:space:]]*=[[:space:]]*mpvpaper' "$STARTUP" 2>/dev/null; then
-    return 0
+  if ! grep -qE '^[[:space:]]*exec-once[[:space:]]*=[[:space:]]*awww-daemon' "$STARTUP" 2>/dev/null; then
+    sed -Ei '0,/^[[:space:]]*#[[:space:]]*exec-once[[:space:]]*=[[:space:]]*awww-daemon[[:space:]]*$/s//exec-once = awww-daemon/' "$STARTUP" 2>/dev/null
   fi
 
   sed -Ei 's|^[[:space:]]*#[[:space:]]*(exec-once[[:space:]]*=[[:space:]]*swww-daemon[[:space:]]+--format[[:space:]]+xrgb[[:space:]]*)$|\1|' "$STARTUP" 2>/dev/null
@@ -411,6 +419,7 @@ else
   ln -sf "$FILE" "$WALLPAPER_CURRENT" 2>/dev/null
   ln -sf "$FILE" "$HOME/.config/rofi/.current_wallpaper" 2>/dev/null
   write_skwd_state "static"
+  write_global_skwd_state "static"
   set_startup_mode_image
 fi
 
@@ -419,4 +428,3 @@ fi
 if [ -x "$HOME/.config/hypr/scripts/ApplyOptimizationState.sh" ]; then
   nohup "$HOME/.config/hypr/scripts/ApplyOptimizationState.sh" --defer >/dev/null 2>&1 &
 fi
-

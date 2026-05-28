@@ -16,6 +16,7 @@ Scope {
   property alias selectedColorFilter: service.selectedColorFilter
   property alias selectorService: service
   property string mainMonitor: Config.mainMonitor
+  readonly property string effectiveMonitor: mainMonitor || (selectorPanel.screen ? selectorPanel.screen.name : "")
   signal wallpaperChanged()
   signal uiReady()
 
@@ -61,6 +62,7 @@ Scope {
     cacheBaseDir: Config.cacheDir
     weDir: Config.weDir
     weAssetsDir: Config.weAssetsDir
+    targetOutputName: wallpaperSelector.effectiveMonitor
     showing: wallpaperSelector.showing
     onModelUpdated: {
       if (wallpaperSelector.showing && !wallpaperSelector.cardVisible) {
@@ -89,6 +91,7 @@ Scope {
 
   onShowingChanged: {
     if (showing) {
+      WallpaperApplyService.targetOutputName = wallpaperSelector.effectiveMonitor
       _restorePending = true
       sliceListView.model = Qt.binding(function() { return service.filteredModel })
       thumbGridView.model = Qt.binding(function() { return service.filteredModel })
@@ -98,6 +101,7 @@ Scope {
       service.startCacheCheck()
       cardShowTimer.restart()
     } else {
+      WallpaperApplyService.targetOutputName = ""
       cardShowTimer.stop()
       cardVisible = false
       settingsOpen = false
