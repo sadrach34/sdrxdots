@@ -2,12 +2,13 @@
   "_comment": "App customization for the launcher and window switcher. Each key is matched case-insensitively against the .desktop Name field.",
   "_usage": "Each value is an object with optional fields: background (image path), icon (nerd font glyph), displayName (custom name shown in UI), hidden (true to hide from launcher), tags (space-separated searchable tags).",
   "about xfce": {
-    "icon": "\udb80\udc04",
+    "icon": "󰀄",
     "background": "~/Documentos/Apps(NOBORRAR)/asdd.jpg"
   },
   "advanced network configuration": {
     "background": "~/Documentos/Apps(NOBORRAR)/logo_network_manager.jpg"
   },
+  "aether": {},
   "android file transfer (mtp)": {},
   "android studio": {},
   "antigravity": {},
@@ -19,14 +20,16 @@
   "balatro": {
     "background": "~/Documentos/Apps(NOBORRAR)/imaasdges.jpg"
   },
+  "baldur's gate 3": {},
   "bitwarden": {},
+  "black mesa": {},
   "blender": {},
   "bluetooth adapters": {
-    "icon": "\udb80\udcb0",
+    "icon": "󰂰",
     "background": "~/dotfiles/.config/quickshell/images/apps/bluetooth.webp"
   },
   "bluetooth manager": {
-    "icon": "\udb80\udcaf",
+    "icon": "󰂯",
     "background": "~/dotfiles/.config/quickshell/images/apps/bluetooth.webp"
   },
   "borderlands goty enhanced": {},
@@ -35,11 +38,11 @@
   "cairo-dock": {},
   "cairo-dock (fallback mode)": {},
   "cmake": {},
-  "dark souls\u2122 ii: scholar of the first sin": {},
-  "dark souls\u2122: remastered": {},
+  "dark souls™ ii: scholar of the first sin": {},
+  "dark souls™: remastered": {},
   "discord": {
     "background": "~/.config/quickshell/images/apps/discord.webp",
-    "icon": "\udb81\ude6f",
+    "icon": "󰙯",
     "displayName": "Totally Not Discord",
     "tags": [
       "chat voice call kitten"
@@ -52,9 +55,11 @@
   "edex-ui": {},
   "elden ring": {},
   "electron 37": {},
+  "emacs": {},
+  "emacs (client)": {},
   "fallout 4": {},
   "firefox": {
-    "icon": "\udb80\ude39",
+    "icon": "󰈹",
     "displayName": "Firefox",
     "tags": [
       "browser web"
@@ -64,14 +69,22 @@
   "gnome system monitor": {},
   "gnu image manipulation program": {},
   "goverlay": {},
+  "gparted": {},
   "gradia": {},
   "gtk settings": {},
+  "half-life": {},
+  "half-life 2": {},
+  "half-life 2: episode one": {},
+  "half-life 2: episode two": {},
+  "half-life 2: lost coast": {},
+  "handy": {},
   "hardware locality lstopo": {},
+  "helldivers™ 2": {},
   "heroic games launcher": {},
   "hollow knight: silksong": {},
   "htop": {},
   "icon browser": {},
-  "idle slayer \u2013 incremental rpg": {},
+  "idle slayer – incremental rpg": {},
   "image viewer": {},
   "immortal redneck": {},
   "insomnia": {},
@@ -94,7 +107,7 @@
   "mongodb compass": {},
   "mousepad": {},
   "mpv media player": {},
-  "nier:automata\u2122": {},
+  "nier:automata™": {},
   "nvtop": {},
   "obs studio": {
     "background": "~/dotfiles/.config/quickshell/images/apps/obs.webp"
@@ -103,10 +116,11 @@
   "onlyoffice": {},
   "openjdk java 26 console": {},
   "openjdk java 26 shell": {},
-  "overwatch\u00ae": {},
-  "overwatch\u00ae 2": {},
+  "overwatch®": {},
+  "overwatch® 2": {},
   "photogimp": {},
   "piper": {},
+  "portal 2": {},
   "postman": {},
   "protonplus": {},
   "protontricks": {},
@@ -135,7 +149,9 @@
     "displayName": "Steam",
     "background": "~/dotfiles/.config/quickshell/images/apps/steam.jpg"
   },
+  "super meat boy": {},
   "system monitor": {},
+  "teamviewer": {},
   "the binding of isaac: rebirth": {},
   "thunar file manager": {},
   "thunar preferences": {},
@@ -145,9 +161,10 @@
   "uuctl": {},
   "vim": {},
   "visual studio code": {
-    "icon": "\udb82\ude1e",
+    "icon": "󰨞",
     "background": "~/dotfiles/.config/quickshell/images/apps/vscode.jpg"
   },
+  "vitetris": {},
   "vlc media player": {},
   "volume control": {},
   "wallpaper engine": {},
@@ -158,6 +175,7 @@
   "warp": {},
   "winetricks": {},
   "xarchiver": {},
+  "xclicker": {},
   "xfce4-settings-manager": {
     "hidden": true
   },

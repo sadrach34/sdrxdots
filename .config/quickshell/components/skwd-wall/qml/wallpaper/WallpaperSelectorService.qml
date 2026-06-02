@@ -15,6 +15,7 @@ QtObject {
   required property string cacheBaseDir
   required property string weDir
   required property string weAssetsDir
+  property string targetOutputName: ""
   required property bool showing
 
   readonly property string clockPositionsFile: homeDir + "/.config/quickshell/components/ModernClockWidget/positions.json"
@@ -400,16 +401,16 @@ QtObject {
   }
 
   function applyStatic(path) {
-    WallpaperApplyService.applyStatic(path)
+    WallpaperApplyService.applyStatic(path, targetOutputName)
     service.wallpaperApplied()
   }
 
   function applyWE(id) {
-    WallpaperApplyService.applyWE(id)
+    WallpaperApplyService.applyWE(id, targetOutputName)
   }
 
   function applyVideo(path) {
-    WallpaperApplyService.applyVideo(path)
+    WallpaperApplyService.applyVideo(path, targetOutputName)
   }
 
   function deleteWallpaperItem(type, name, weId) {

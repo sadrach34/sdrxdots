@@ -33,6 +33,7 @@ MODE="auto"
 WITH_ANIMATIONS="auto"      # auto|yes|no
 WITH_GAMER="auto"           # auto|yes|no
 WITH_PROGRAMMER="auto"      # auto|yes|no
+WITH_SDRX_BEAT="auto"       # auto|yes|no
 WITH_LAPTOP="auto"          # auto|yes|no
 WITH_SDDM="auto"            # auto|yes|no
 WITH_GRUB="auto"            # auto|yes|no
@@ -64,11 +65,13 @@ Opciones:
   --no-gamer         Desactivar modo gamer
   --programmer       Activar modo programador
   --no-programmer    Desactivar modo programador
+  --sdrx-beat        Instalar SDRX-Beat
+  --no-sdrx-beat     No instalar SDRX-Beat
   -h, --help         Mostrar ayuda
 
 Ejemplos:
-  ./install.sh --install --animations --gamer --programmer
-  ./install.sh --install --no-animations --no-gamer --programmer
+  ./install.sh --install --animations --gamer --programmer --sdrx-beat
+  ./install.sh --install --no-animations --no-gamer --programmer --no-sdrx-beat
 HELP
 }
 
@@ -90,6 +93,8 @@ while [[ $# -gt 0 ]]; do
     --no-gamer) WITH_GAMER="no" ;;
     --programmer) WITH_PROGRAMMER="yes" ;;
     --no-programmer) WITH_PROGRAMMER="no" ;;
+    --sdrx-beat) WITH_SDRX_BEAT="yes" ;;
+    --no-sdrx-beat) WITH_SDRX_BEAT="no" ;;
     -h|--help) usage; exit 0 ;;
     *) error "Opcion no valida: $1" ;;
   esac
@@ -155,6 +160,11 @@ load_previous_option_defaults() {
   if [[ "$WITH_PROGRAMMER" == "auto" ]]; then
     prev="$(read_marker_value programmer)"
     [[ "$prev" =~ ^(yes|no)$ ]] && WITH_PROGRAMMER="$prev"
+  fi
+
+  if [[ "$WITH_SDRX_BEAT" == "auto" ]]; then
+    prev="$(read_marker_value sdrx_beat)"
+    [[ "$prev" =~ ^(yes|no)$ ]] && WITH_SDRX_BEAT="$prev"
   fi
 }
 
@@ -234,6 +244,14 @@ select_optional_modules() {
       WITH_PROGRAMMER="yes"
     else
       WITH_PROGRAMMER="no"
+    fi
+  fi
+
+  if [[ "$WITH_SDRX_BEAT" == "auto" ]]; then
+    if ask_yes_no "Instalar SDRX-Beat (reproductor TUI de musica)?" false; then
+      WITH_SDRX_BEAT="yes"
+    else
+      WITH_SDRX_BEAT="no"
     fi
   fi
 }
@@ -609,6 +627,38 @@ install_gamer() {
   fi
 
   ok "Modo gamer listo"
+}
+
+install_sdrx_beat() {
+  section "SDRX-Beat"
+
+  pacman_install python mpv yt-dlp
+  ensure_yay
+  yay_install mpv-mpris
+
+  local installer="$REPO_DIR/.config/hypr/scripts/SDRX-Beat/install.sh"
+  local marker="$HOME/.config/sdrx-beat/.sdrx-beat-installed"
+  local install_mode="--install"
+
+  if [[ -f "$marker" ]]; then
+    install_mode="--repair"
+  fi
+
+  if [[ -f "$installer" ]]; then
+    bash "$installer" "$install_mode"
+    ok "SDRX-Beat listo"
+    return
+  fi
+
+  local tmpdir
+  tmpdir="$(mktemp -d)"
+  if git clone --depth=1 https://github.com/Sadrach34/SDRX-Beat.git "$tmpdir/SDRX-Beat"; then
+    bash "$tmpdir/SDRX-Beat/install.sh" "$install_mode"
+    ok "SDRX-Beat listo"
+  else
+    warn "No se pudo clonar SDRX-Beat"
+  fi
+  rm -rf "$tmpdir"
 }
 
 install_python_stack() {
@@ -1148,6 +1198,7 @@ main() {
   info "Animaciones: $WITH_ANIMATIONS"
   info "Modo gamer: $WITH_GAMER"
   info "Modo programador: $WITH_PROGRAMMER"
+  info "SDRX-Beat: $WITH_SDRX_BEAT"
 
   if [[ "$MODE" == "update" ]]; then
     section "Actualizando repo"
@@ -1184,6 +1235,10 @@ main() {
       if [[ "$WITH_PROGRAMMER" == "yes" ]]; then
         install_programmer
       fi
+
+      if [[ "$WITH_SDRX_BEAT" == "yes" ]]; then
+        install_sdrx_beat
+      fi
     else
       install_non_arch_minimal "$pkgm"
     fi
@@ -1208,19 +1263,22 @@ main() {
   set_default_shell
 
   mkdir -p "$(dirname "$MARKER_FILE")"
-  printf "version=%s\nmode=%s\ndate=%s\nrepo=%s\nsddm=%s\ngrub=%s\nlaptop=%s\nanimations=%s\ngamer=%s\nprogrammer=%s\n" \
-    "$DOTS_VERSION" "$MODE" "$(date -Iseconds)" "$REPO_DIR" "$WITH_SDDM" "$WITH_GRUB" "$WITH_LAPTOP" "$WITH_ANIMATIONS" "$WITH_GAMER" "$WITH_PROGRAMMER" > "$MARKER_FILE"
+  printf "version=%s\nmode=%s\ndate=%s\nrepo=%s\nsddm=%s\ngrub=%s\nlaptop=%s\nanimations=%s\ngamer=%s\nprogrammer=%s\nsdrx_beat=%s\n" \
+    "$DOTS_VERSION" "$MODE" "$(date -Iseconds)" "$REPO_DIR" "$WITH_SDDM" "$WITH_GRUB" "$WITH_LAPTOP" "$WITH_ANIMATIONS" "$WITH_GAMER" "$WITH_PROGRAMMER" "$WITH_SDRX_BEAT" > "$MARKER_FILE"
 
   echo
   ok "Instalacion completada"
   info "Usa: ./install.sh --update"
-  info "Sin prompts: ./install.sh --yes --animations --gamer --programmer"
+  info "Sin prompts: ./install.sh --yes --animations --gamer --programmer --sdrx-beat"
 
   if [[ "$WITH_GAMER" == "yes" ]]; then
     warn "Gamer: revisa ProtonPlus/ProtonUp-Qt para confirmar Proton-GE latest"
   fi
   if [[ "$WITH_PROGRAMMER" == "yes" ]]; then
     warn "Programador: reinicia sesion para usar docker sin sudo"
+  fi
+  if [[ "$WITH_SDRX_BEAT" == "yes" ]]; then
+    info "SDRX-Beat: usa beat o sdrx-beat para abrirlo"
   fi
 }
 

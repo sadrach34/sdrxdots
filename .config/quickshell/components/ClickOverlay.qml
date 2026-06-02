@@ -8,6 +8,7 @@ import QtQuick
 // abierto debajo.
 PanelWindow {
     id: overlay
+    screen: Quickshell.screens.find(s => s.name === root.clickOverlayMonitorName) ?? Quickshell.screens[0]
 
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"

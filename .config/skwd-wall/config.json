@@ -89,8 +89,8 @@
       "hexRows": 2,
       "activeCustomPreset": "C1_slices",
       "autoChangeMode": "random",
-      "autoChangeIntervalMinutes": 2,
-      "autoChangeEnabled": false,
+      "autoChangeIntervalMinutes": 15,
+      "autoChangeEnabled": true,
       "filterBarBgColor": "#000000"
     }
   },

@@ -7,6 +7,8 @@ import "./skwd-wall/qml/services" as SkwdServices
 Scope {
   id: wallpaperPicker
 
+  property string mainMonitor: ""
+
   readonly property string _autoMode: (Config.wallpaperAutoChangeMode === "next") ? "next" : "random"
   readonly property int _autoIntervalMs: Math.max(1, Config.wallpaperAutoChangeIntervalMinutes) * 60000
 
@@ -59,6 +61,7 @@ Scope {
     onLoaded: {
       if (!item) return
       item.colors = Qt.binding(function() { return skwdColors })
+      item.mainMonitor = Qt.binding(function() { return wallpaperPicker.mainMonitor })
       item.showing = true
       if (item.wallpaperChanged) {
         item.wallpaperChanged.connect(function() {

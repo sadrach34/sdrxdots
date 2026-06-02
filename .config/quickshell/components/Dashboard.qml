@@ -7,6 +7,7 @@ import "./toppanel"
 
 PanelWindow {
     id: dashboard
+    screen: Quickshell.screens.find(s => s.name === root.dashboardMonitorName) ?? Quickshell.screens[0]
     visible: true
     exclusionMode: ExclusionMode.Ignore
     anchors { top: true; bottom: true; right: true }

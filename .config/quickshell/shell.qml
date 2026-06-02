@@ -1,6 +1,7 @@
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
+import Quickshell.Hyprland
 import QtQuick
 import Qt5Compat.GraphicalEffects
 import "./components"
@@ -21,6 +22,12 @@ ShellRoot {
 
     // Ruta base de la configuración (usada por subcomponentes para leer archivos)
     property string configPath: Quickshell.env("HOME") + "/.config/quickshell"
+    property string dashboardMonitorName: ""
+    property string topPanelMonitorName: ""
+    property string appLauncherMonitorName: ""
+    property string windowSwitcherMonitorName: ""
+    property string wallpaperPickerMonitorName: ""
+    readonly property string clickOverlayMonitorName: topPanelVisible ? topPanelMonitorName : dashboardMonitorName
 
     SkwdTheme.Colors {
         id: skwdColors
@@ -40,14 +47,33 @@ ShellRoot {
     property bool windowSwitcherVisible:  false  // ALT+TAB estilo paralelo
     property bool wallpaperPickerVisible: false  // selector visual de fondos de pantalla
 
+    function _focusedMonitorName() {
+        return Hyprland.focusedMonitor ? Hyprland.focusedMonitor.name : ""
+    }
+
     // ── Helpers de toggle ────────────────────────────────────────────────────
-    // Llamados desde los IpcHandlers; invierten el flag correspondiente.
-    function toggleDashboard()       { dashboardVisible      = !dashboardVisible }
-    function toggleTopPanel()        { topPanelVisible       = !topPanelVisible }
-    function toggleAppLauncher()     { appLauncherVisible    = !appLauncherVisible }
-    function toggleWindowSwitcher()  { windowSwitcherVisible = !windowSwitcherVisible }
-    function toggleWallpaperPicker() { wallpaperPickerVisible = !wallpaperPickerVisible }
-    function openWallpaperPicker()   { wallpaperPickerVisible = true }
+    // Llamados desde los IpcHandlers; capturan la salida enfocada antes de abrir.
+    function toggleDashboard() {
+        if (!dashboardVisible) dashboardMonitorName = _focusedMonitorName()
+        dashboardVisible = !dashboardVisible
+    }
+    function toggleTopPanel() {
+        if (!topPanelVisible) topPanelMonitorName = _focusedMonitorName()
+        topPanelVisible = !topPanelVisible
+    }
+    function toggleAppLauncher() {
+        if (!appLauncherVisible) appLauncherMonitorName = _focusedMonitorName()
+        appLauncherVisible = !appLauncherVisible
+    }
+    function toggleWindowSwitcher() {
+        if (!windowSwitcherVisible) windowSwitcherMonitorName = _focusedMonitorName()
+        windowSwitcherVisible = !windowSwitcherVisible
+    }
+    function toggleWallpaperPicker() {
+        if (!wallpaperPickerVisible) wallpaperPickerMonitorName = _focusedMonitorName()
+        wallpaperPickerVisible = !wallpaperPickerVisible
+    }
+    function openWallpaperPicker()   { wallpaperPickerMonitorName = _focusedMonitorName(); wallpaperPickerVisible = true }
     function closeWallpaperPicker()  { wallpaperPickerVisible = false }
 
     // ── Componentes (cada uno es una PanelWindow o similar en Wayland) ───────
@@ -67,16 +93,20 @@ ShellRoot {
     AppLauncher {
         colors: skwdColors
         colorService: themeColors
+        mainMonitor: root.appLauncherMonitorName
     }         // Lanzador de apps: búsqueda, ranking por frecuencia,
                            //   filtro Steam, soporte de apps de terminal, watcher
                            //   inotifywait para refrescar al instalar/desinstalar apps
 
     WindowSwitcher {
         colors: skwdColors
+        mainMonitor: root.windowSwitcherMonitorName
     }      // Switcher de ventanas: vista en parallelogram-slices,
                            //   badge FLOAT, cerrar ventana con Del, multi-monitor
 
-    WallpaperPicker {}     // Selector de fondos: thumbnails 900×520, navegación
+    WallpaperPicker {
+        mainMonitor: root.wallpaperPickerMonitorName
+    }     // Selector de fondos: thumbnails 900×520, navegación
                            //   con teclado/scroll, aplica con swww
 
     ModernClock {}

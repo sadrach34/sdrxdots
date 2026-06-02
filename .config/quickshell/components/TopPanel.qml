@@ -17,6 +17,7 @@ import "./toppanel"
 //  Tab 4 – notepad   : NotesWidget + AppVolumeWidget  ← la que ya tenías
 PanelWindow {
     id: topPanel
+    screen: Quickshell.screens.find(s => s.name === root.topPanelMonitorName) ?? Quickshell.screens[0]
 
     property bool barVolumeEnabled: true
     property bool barCalendarEnabled: true
@@ -425,7 +426,11 @@ PanelWindow {
                         var fullPath = wallTab.wallsDir + "/" + filename
                         var script   = Quickshell.env("HOME") + "/.config/hypr/UserScripts/WallpaperApply.sh"
                         var t        = isVideo(filename) ? "video" : "image"
-                        wallApplyProc2.command = ["bash", script, t, fullPath]
+                        var output   = root.topPanelMonitorName || ""
+                        if (output)
+                            wallApplyProc2.command = ["bash", "-c", "WALL_OUTPUT=" + JSON.stringify(output) + " " + JSON.stringify(script) + " " + JSON.stringify(t) + " " + JSON.stringify(fullPath)]
+                        else
+                            wallApplyProc2.command = ["bash", script, t, fullPath]
                         wallApplyProc2.running = false
                         wallApplyProc2.running = true
                         wallTab.currentWallpaper = fullPath
