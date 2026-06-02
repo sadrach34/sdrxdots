@@ -16,6 +16,7 @@ QtObject {
     readonly property string mainMonitor: Config.mainMonitor
     readonly property string ollamaUrl: Config.ollamaUrl
     readonly property string ollamaModel: Config.ollamaModel
+    readonly property string applyScript: Config.homeDir + "/.config/hypr/UserScripts/WallpaperApply.sh"
     property string matugenScheme: "scheme-fidelity"
     property bool wallpaperMute: true
     readonly property string _matugenConfig: cacheDir + "/matugen-config.toml"
@@ -71,45 +72,21 @@ QtObject {
 
     function applyStatic(path) {
         console.log("WallpaperApplyService.applyStatic:", path, "wallpaperDir:", wallpaperDir)
-        _saveState("static", path, "")
-        awwwProcess.command = ["sh", "-c",
-            "pkill mpvpaper 2>/dev/null; " +
-            "pkill -9 -f '[l]inux-wallpaperengine' 2>/dev/null; " +
-            "rm -f " + JSON.stringify(videoDir + "/lockscreen-video.mp4") + "; " +
-            "if ! pgrep -x awww-daemon >/dev/null; then " +
-            "  setsid awww-daemon >/dev/null 2>&1 & disown; " +
-            "  for i in 1 2 3 4 5; do sleep 0.3; pgrep -x awww-daemon >/dev/null && break; done; " +
-            "fi; " +
-            "awww img " + JSON.stringify(path) + service._transitionArgs()]
-        awwwProcess.running = true
+        _runApply("image", path)
         _extractAndTheme(path)
         wallpaperApplied("static", _basename(path))
     }
 
     function applyVideo(path) {
-        _saveState("video", path, "")
-        mpvProcess.command = ["sh", "-c",
-            "pkill awww 2>/dev/null; pkill awww-daemon 2>/dev/null; " +
-            "pkill mpvpaper 2>/dev/null; " +
-            "pkill -9 -f '[l]inux-wallpaperengine' 2>/dev/null; " +
-            "rm -f " + JSON.stringify(videoDir + "/lockscreen-video.mp4") + "; " +
-            "nohup setsid mpvpaper -o " + (wallpaperMute ? "'loop --mute=yes'" : "'loop'") + " '*' " + JSON.stringify(path) + " </dev/null >/dev/null 2>&1 &"]
-        mpvProcess.running = true
+        _runApply("video", path)
         _extractVideoThumb(path)
         wallpaperApplied("video", _basename(path))
     }
 
     function applyWE(weId) {
-        _saveState("we", "", weId)
-        _weRetryCount = 0
-        _lastWeId = weId
-        _reclaimOllamaVram()
-        _pendingAction = function() {
-            _launchWE(weId)
-            _extractWEThumb(weId)
-            wallpaperApplied("we", weId)
-        }
-        _killAll()
+        _runApply("we", weId)
+        _extractWEThumb(weId)
+        wallpaperApplied("we", weId)
     }
 
     property bool _restoreRequested: false
@@ -142,6 +119,17 @@ QtObject {
         if (path) obj.path = path
         if (weId) obj.we_id = weId
         _stateFile.setText(JSON.stringify(obj))
+    }
+
+    function _runApply(mode, target) {
+        if (!applyScript) {
+            console.log("WallpaperApplyService: apply script path unavailable")
+            return
+        }
+        _applyStderr = []
+        applyProcess.command = ["bash", applyScript, mode, target]
+        applyProcess.running = false
+        applyProcess.running = true
     }
 
     function _readStateSafe() {
@@ -193,6 +181,18 @@ QtObject {
     }
 
     property var _awwwStderr: []
+    property var _applyStderr: []
+    property var _applyProcess: Process {
+        id: applyProcess
+        onExited: function(code, status) {
+            if (code !== 0 || service._applyStderr.length > 0) {
+                console.log("WallpaperApplyService: apply script exited code=" + code + " status=" + status +
+                            (service._applyStderr.length > 0 ? " stderr: " + service._applyStderr.join("") : ""))
+            }
+            service._applyStderr = []
+        }
+        stderr: SplitParser { onRead: data => service._applyStderr.push(data) }
+    }
     property var _awwwProcess: Process {
         id: awwwProcess
         onExited: function(code, status) {

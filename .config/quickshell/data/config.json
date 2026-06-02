@@ -136,5 +136,9 @@
   },
   "appearance": {
     "colorMode": "dark"
-  }
+  },
+  "secondary_monitor": "auto",
+  "monitors_list": [
+    "eDP-1"
+  ]
 }

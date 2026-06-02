@@ -8,6 +8,10 @@
 #
 # NOTE: this script uses bash (not POSIX shell) for the RANDOM variable
 
+set -euo pipefail
+
+APPLY_SCRIPT="$HOME/.config/hypr/UserScripts/WallpaperApply.sh"
+
 # Prevent multiple instances
 PIDFILE="/tmp/wallpaper_auto_change.pid"
 if [ -f "$PIDFILE" ]; then
@@ -23,13 +27,16 @@ echo $$ > "$PIDFILE"
 # Cleanup on exit
 trap 'rm -f "$PIDFILE"; exit' INT TERM EXIT
 
-wallust_refresh=$HOME/.config/hypr/scripts/RefreshNoWaybar.sh
-
 focused_monitor=$(hyprctl monitors | awk '/^Monitor/{name=$2} /focused: yes/{print name}')
 
 if [[ $# -lt 1 ]] || [[ ! -d $1   ]]; then
 	echo "Usage:
 	$0 <dir containing images>"
+	exit 1
+fi
+
+if [[ ! -x "$APPLY_SCRIPT" ]]; then
+	echo "ERROR: apply script missing or not executable: $APPLY_SCRIPT" >&2
 	exit 1
 fi
 
@@ -55,28 +62,7 @@ while true; do
 		
 		echo "Setting wallpaper: $img"
 		
-		# Set wallpaper and wait for it to complete
-		swww img -o "$focused_monitor" "$img" --transition-type simple --transition-fps 60
-		
-		# Wait a moment to ensure swww has processed the change
-		sleep 2
-		
-		# Update rofi wallpaper link for quickshell overview and hyprlock
-		ln -sf "$img" "$HOME/.config/rofi/.current_wallpaper"
-		
-		# Verify the change was applied correctly
-		current_wall=$(swww query | grep "currently displaying" | sed 's/.*image: //')
-		link_wall=$(readlink "$HOME/.config/rofi/.current_wallpaper")
-		
-		if [ "$current_wall" != "$link_wall" ]; then
-			echo "Warning: Wallpaper mismatch detected"
-			echo "swww shows: $current_wall"
-			echo "Link points to: $link_wall"
-			# Force sync the link to match swww
-			ln -sf "$current_wall" "$HOME/.config/rofi/.current_wallpaper"
-		fi
-		
-		# $wallust_refresh
+		WALL_OUTPUT="$focused_monitor" "$APPLY_SCRIPT" image "$img"
 		sleep $INTERVAL
 	done
 done
