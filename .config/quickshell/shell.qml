@@ -46,6 +46,9 @@ ShellRoot {
     property bool appLauncherVisible:     false  // lanzador de apps con búsqueda y freq
     property bool windowSwitcherVisible:  false  // ALT+TAB estilo paralelo
     property bool wallpaperPickerVisible: false  // selector visual de fondos de pantalla
+    property bool concentrationAlertVisible: false // alerta de tiempo terminado
+    property bool focusWarningVisible: false // aviso de app bloqueada
+    property bool concentrationMuted: false // silencio para la alarma de concentración
 
     function _focusedMonitorName() {
         return Hyprland.focusedMonitor ? Hyprland.focusedMonitor.name : ""
@@ -111,6 +114,9 @@ ShellRoot {
 
     ModernClock {}
 
+    ConcentrationAlert {}  // Ventana de alerta para el modo concentración
+    FocusWarning {}        // Aviso de app bloqueada
+
     // ── IPC Handlers ─────────────────────────────────────────────────────────
     // Exponen comandos que Hyprland puede llamar con:
     //   qs ipc call <target> <function>
@@ -137,6 +143,13 @@ ShellRoot {
         function toggle() { root.toggleWallpaperPicker() }
         function open() { root.openWallpaperPicker() }
         function close() { root.closeWallpaperPicker() }
+    }
+
+    IpcHandler {
+        target: "shell"
+        function reload() { Quickshell.reload() }
+        function showAlert() { root.concentrationAlertVisible = true }
+        function showFocusWarning() { root.focusWarningVisible = true }
     }
     // ── Screenshot tool (Win+Shift+S) ─────────────────────────────────────────
     // ScreenshotTool se crea al activarse y se destruye al cerrar (active: SsState.screenshotToolVisible)

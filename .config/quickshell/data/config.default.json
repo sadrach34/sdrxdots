@@ -10,7 +10,10 @@
     "steam": "~/.local/share/Steam"
   },
   "monitor": "DP-1",
-  "ollama": {
+  "secondary_monitor": "auto",
+  "monitors_list": ["DP-1", "HDMI-A-1"],
+  "paths": {
+
     "url": "http://localhost:11434",
     "model": "gemma3:4b"
   },
@@ -87,7 +90,10 @@
       "waybarStylePreset": "[Dark] Purpl"
     },
     "lockscreen": false,
-    "appLauncher": true,
+    "appLauncher": {
+      "enabled": true,
+      "backend": "quickshell"
+    },
     "wallpaperSelector": {
       "enabled": true,
       "showColorDots": false

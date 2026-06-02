@@ -70,14 +70,14 @@ PanelWindow {
     // ── Estado ───────────────────────────────────────────────────────────────
     property int currentTab: 0
 
-    readonly property int tabCount:   5
+    readonly property int tabCount:   6
     readonly property int tabWidth:   48
     readonly property int tabSpacing: 8
     readonly property int animMs:     250
 
     // Phosphor-Bold (cargado en shell.qml)
-    readonly property var tabIcons:    ["\ueb02", "\ue6c8", "\ue2ac", "\ue6a2", "\ue63e"]
-    readonly property var tabTooltips: ["Apps", "Fondos", "Métricas", "Asistente", "Notas / Volumen"]
+    readonly property var tabIcons:    ["\ueb02", "\ue6c8", "\ue2ac", "\ue6a2", "\ue63e", "\ue18c"]
+    readonly property var tabTooltips: ["Apps", "Fondos", "Métricas", "Asistente", "Notas / Volumen", "Concentración"]
 
     function navigateTo(idx) { currentTab = idx }
 
@@ -133,7 +133,7 @@ PanelWindow {
                         var up = event.angleDelta.y > 0
                         var n  = topPanel.currentTab
                         if (up  && n > 0)                          n--
-                        else if (update && n < topPanel.tabCount - 1) n++
+                        else if (!up && n < topPanel.tabCount - 1) n++
                         if (n !== topPanel.currentTab) topPanel.navigateTo(n)
                     }
                 }
@@ -1896,6 +1896,15 @@ PanelWindow {
                             visible: topPanel.barVolumeEnabled
                             enabled: topPanel.barVolumeEnabled
                         }
+                    }
+                }
+
+                // ── Tab 5: Modo Concentración ───────────────────────────────
+                TabPane {
+                    paneIndex: 5
+                    FocusMode {
+                        anchors.fill: parent
+                        theme: theme
                     }
                 }
 

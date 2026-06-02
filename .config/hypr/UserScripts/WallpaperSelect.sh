@@ -3,12 +3,10 @@
 # Contributor: sadrach34 (mods and maintenance)
 # This script for selecting wallpapers (SUPER ctrl W)
 
-# WALLPAPERS PATH
-terminal=kitty
-_transform=$(grep -oP 'monitor=HDMI-A-1,transform,\K[0-9]+' "$HOME/.config/hypr/monitors.conf" 2>/dev/null || echo "0")
-wallDIR="$HOME/Pictures/$([[ "$_transform" == "1" ]] && echo "wallpaperVertical" || echo "wallpapers")"
-SCRIPTSDIR="$HOME/.config/hypr/scripts"
-wallpaper_current="$HOME/.config/hypr/.wallpaper_current"
+set -euo pipefail
+
+APPLY_SCRIPT="$HOME/.config/hypr/UserScripts/WallpaperApply.sh"
+MONITORS_CONF="$HOME/.config/hypr/monitors.conf"
 
 # Directory for swaync
 iDIR="$HOME/.config/swaync/images"
@@ -45,29 +43,16 @@ icon_size=$(echo "scale=1; ($monitor_height * 3) / ($scale_factor * 150)" | bc)
 adjusted_icon_size=$(echo "$icon_size" | awk '{if ($1 < 15) $1 = 20; if ($1 > 25) $1 = 25; print $1}')
 rofi_override="element-icon{size:${adjusted_icon_size}%;}"
 
-# Kill existing wallpaper daemons for video
-kill_wallpaper_for_video() {
-  swww kill 2>/dev/null
-  pkill mpvpaper 2>/dev/null
-  pkill swaybg 2>/dev/null
-  pkill hyprpaper 2>/dev/null
+get_wall_dir_for_monitor() {
+  local mon="$1"
+  local transform
+  transform=$(grep -oP "monitor=${mon},transform,\K[0-9]+" "$MONITORS_CONF" 2>/dev/null || echo "0")
+  if [[ "$transform" == "1" ]]; then
+    echo "$HOME/Pictures/wallpaperVertical"
+  else
+    echo "$HOME/Pictures/wallpapers"
+  fi
 }
-
-# Kill existing wallpaper daemons for image
-kill_wallpaper_for_image() {
-  pkill mpvpaper 2>/dev/null
-  pkill swaybg 2>/dev/null
-  pkill hyprpaper 2>/dev/null
-}
-
-# Retrieve wallpapers (both images & videos)
-mapfile -d '' PICS < <(find -L "${wallDIR}" -type f \( \
-  -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.gif" -o \
-  -iname "*.bmp" -o -iname "*.tiff" -o -iname "*.webp" -o \
-  -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.mov" -o -iname "*.webm" \) -print0)
-
-RANDOM_PIC="${PICS[$((RANDOM % ${#PICS[@]}))]}"
-RANDOM_PIC_NAME=". random"
 
 # Rofi command
 rofi_command="rofi -i -show -dmenu -config $rofi_theme -theme-str $rofi_override"
@@ -100,104 +85,35 @@ menu() {
   done
 }
 
-# Offer SDDM Simple Wallpaper Option (only for non-video wallpapers)
-# set_sddm_wallpaper() {
-#   sleep 1
-#   sddm_simple="/usr/share/sddm/themes/simple_sddm_2"
-
-#   if [ -d "$sddm_simple" ]; then
-
-#     # Check if yad is running to avoid multiple notifications
-#     if pidof yad >/dev/null; then
-#       killall yad
-#     fi
-
-#     if yad --info --text="Set current wallpaper as SDDM background?\n\nNOTE: This only applies to SIMPLE SDDM v2 Theme" \
-#       --text-align=left \
-#       --title="SDDM Background" \
-#       --timeout=5 \
-#       --timeout-indicator=right \
-#       --button="yes:0" \
-#       --button="no:1"; then
-
-#       # Check if terminal exists
-#       if ! command -v "$terminal" &>/dev/null; then
-#         notify-send -i "$iDIR/error.png" "Missing $terminal" "Install $terminal to enable setting of wallpaper background"
-#         exit 1
-#       fi
-	  
-# 	  # exec $SCRIPTSDIR/sddm_wallpaper.sh --normal  # Disabled - SDDM wallpaper auto-change
-    
-#     fi
-#   fi
-# }
-
-modify_startup_config() {
-  local selected_file="$1"
-  local startup_config="$HOME/.config/hypr/UserConfigs/Startup_Apps.conf"
-
-  # Check if it's a live wallpaper (video)
-  if [[ "$selected_file" =~ \.(mp4|mkv|mov|webm)$ ]]; then
-    # For video wallpapers:
-    sed -i '/^\s*exec-once\s*=\s*swww-daemon\s*--format\s*xrgb\s*$/s/^/\#/' "$startup_config"
-    sed -i '/^\s*#\s*exec-once\s*=\s*mpvpaper\s*.*$/s/^#\s*//;' "$startup_config"
-
-    # Update the livewallpaper variable with the selected video path (using $HOME)
-    selected_file="${selected_file/#$HOME/\$HOME}" # Replace /home/user with $HOME
-    sed -i "s|^\$livewallpaper=.*|\$livewallpaper=\"$selected_file\"|" "$startup_config"
-
-    echo "Configured for live wallpaper (video)."
-  else
-    # For image wallpapers:
-    sed -i '/^\s*#\s*exec-once\s*=\s*swww-daemon\s*--format\s*xrgb\s*$/s/^\s*#\s*//;' "$startup_config"
-
-    sed -i '/^\s*exec-once\s*=\s*mpvpaper\s*.*$/s/^/\#/' "$startup_config"
-
-    echo "Configured for static wallpaper (image)."
-  fi
-}
-
-# Apply Image Wallpaper
-apply_image_wallpaper() {
-  local image_path="$1"
-
-  kill_wallpaper_for_image
-
-  if ! pgrep -x "swww-daemon" >/dev/null; then
-    echo "Starting swww-daemon..."
-    swww-daemon --format xrgb &
-  fi
-
-  swww img -o "$focused_monitor" "$image_path" $SWWW_PARAMS
-
-  wait $!
-
-  # Update rofi wallpaper link for quickshell overview after wallpaper is set
-  ln -sf "$image_path" "$HOME/.config/rofi/.current_wallpaper"
-  
-  # Save current wallpaper for effects script (without applying effects)
-  mkdir -p "$(dirname "$wallpaper_current")"
-  ln -sf "$image_path" "$wallpaper_current"
-
-  # set_sddm_wallpaper  # Disabled - SDDM wallpaper auto-change
-}
-
-apply_video_wallpaper() {
-  local video_path="$1"
-
-  # Check if mpvpaper is installed
-  if ! command -v mpvpaper &>/dev/null; then
-    notify-send -i "$iDIR/error.png" "E-R-R-O-R" "mpvpaper not found"
-    return 1
-  fi
-  kill_wallpaper_for_video
-
-  # Apply video wallpaper using mpvpaper
-  mpvpaper '*' -o "load-scripts=no no-audio --loop" "$video_path" &
-}
-
 # Main function
 main() {
+  local wallDIR selected_file choice_basename mode
+
+  if [[ ! -x "$APPLY_SCRIPT" ]]; then
+    notify-send -i "$iDIR/error.png" "E-R-R-O-R" "WallpaperApply.sh not found or not executable"
+    exit 1
+  fi
+
+  wallDIR="$(get_wall_dir_for_monitor "$focused_monitor")"
+  if [[ ! -d "$wallDIR" ]]; then
+    notify-send -i "$iDIR/error.png" "E-R-R-O-R" "Wallpaper directory not found: $wallDIR"
+    exit 1
+  fi
+
+  # Retrieve wallpapers (both images & videos)
+  mapfile -d '' PICS < <(find -L "${wallDIR}" -type f \( \
+    -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.gif" -o \
+    -iname "*.bmp" -o -iname "*.tiff" -o -iname "*.webp" -o \
+    -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.mov" -o -iname "*.webm" \) -print0)
+
+  if (( ${#PICS[@]} == 0 )); then
+    notify-send -i "$iDIR/error.png" "E-R-R-O-R" "No wallpapers found in $wallDIR"
+    exit 1
+  fi
+
+  RANDOM_PIC="${PICS[$((RANDOM % ${#PICS[@]}))]}"
+  RANDOM_PIC_NAME=". random"
+
   choice=$(menu | $rofi_command)
   choice=$(echo "$choice" | xargs)
   RANDOM_PIC_NAME=$(echo "$RANDOM_PIC_NAME" | xargs)
@@ -222,14 +138,15 @@ main() {
     exit 1
   fi
 
-  # Modify the Startup_Apps.conf file based on wallpaper type
-  modify_startup_config "$selected_file"
-
-  # **CHECK FIRST** if it's a video or an image **before calling any function**
   if [[ "$selected_file" =~ \.(mp4|mkv|mov|webm|MP4|MKV|MOV|WEBM)$ ]]; then
-    apply_video_wallpaper "$selected_file"
+    mode="video"
   else
-    apply_image_wallpaper "$selected_file"
+    mode="image"
+  fi
+
+  if ! WALL_OUTPUT="$focused_monitor" "$APPLY_SCRIPT" "$mode" "$selected_file"; then
+    notify-send -i "$iDIR/error.png" "Wallpaper Error" "Failed to apply $selected_file on $focused_monitor"
+    exit 1
   fi
 
 }
