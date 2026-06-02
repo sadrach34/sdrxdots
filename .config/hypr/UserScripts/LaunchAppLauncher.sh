@@ -10,7 +10,10 @@ try:
         d = json.load(f)
     al = d.get("components", {}).get("appLauncher", True)
     if isinstance(al, dict):
-        print(al.get("backend", "quickshell"))
+        if not al.get("enabled", True):
+            print("disabled")
+        else:
+            print(al.get("backend", "quickshell"))
     else:
         print("quickshell" if al else "rofi")
 except Exception as e:
@@ -20,6 +23,10 @@ PYEOF
 
 if [[ "$backend" == "rofi" ]]; then
     rofi -show drun
+elif [[ "$backend" == "fuzzel" ]]; then
+    fuzzel
+elif [[ "$backend" == "disabled" ]]; then
+    exit 0
 else
     if pgrep -x quickshell >/dev/null; then
         qs ipc call applauncher toggle

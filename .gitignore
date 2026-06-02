@@ -17,3 +17,4 @@ CLAUDE.md
 
 # Config personal (editable por el usuario). Solo config.default.json se sube al repo.
 .config/quickshell/data/config.json
+.config/hypr/UserConfigs/UserLauncherBinds.conf

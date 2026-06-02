@@ -238,6 +238,45 @@ select_optional_modules() {
   fi
 }
 
+setup_wizard() {
+  # Solo ejecutar si no es una actualizacion y el archivo de defaults no existe
+  local defaults_file="$HOME/.config/hypr/UserConfigs/01-UserDefaults.conf"
+  if [[ "$MODE" == "update" || -f "$defaults_file" ]]; then
+    return
+  fi
+
+  section "Asistente de Configuracion (Primera vez)"
+  
+  info "Selecciona tu terminal preferida (kitty es la predeterminada y recomendada)"
+  echo "1) kitty (default)"
+  echo "2) foot"
+  read -rp "Opcion [1-2]: " term_opt
+  local chosen_term="kitty"
+  [[ "$term_opt" == "2" ]] && chosen_term="foot"
+  
+  info "Selecciona tu shell preferida (zsh es la predeterminada)"
+  echo "1) zsh (default)"
+  echo "2) bash"
+  echo "3) fish"
+  read -rp "Opcion [1-3]: " shell_opt
+  local chosen_shell="zsh"
+  case "$shell_opt" in
+    2) chosen_shell="bash" ;;
+    3) chosen_shell="fish" ;;
+  esac
+
+  # Inyectar en el archivo de instalacion (sera copiado por apply_sdrxdots)
+  local target_defaults="$REPO_DIR/.config/hypr/UserConfigs/01-UserDefaults.conf"
+  sed -i "s|^\$term\s*=.*|\$term = $chosen_term|" "$target_defaults"
+  if grep -q '^\$shell\s*=' "$target_defaults"; then
+    sed -i "s|^\$shell\s*=.*|\$shell = $chosen_shell|" "$target_defaults"
+  else
+    sed -i "/^\$term\s*=/i \$shell = $chosen_shell" "$target_defaults"
+  fi
+  
+  ok "Configuracion inicial preparada: $chosen_term con $chosen_shell"
+}
+
 detect_pkg_manager() {
   if command -v pacman >/dev/null 2>&1; then
     echo "pacman"
@@ -753,6 +792,14 @@ apply_sdrxdots() {
   sync_directory_contents "$REPO_DIR/.config" "$HOME/.config"
   cleanup_hypr_version_markers_best_effort
 
+  # Crear UserLauncherBinds.conf desde base si no existe
+  local launcher_base="$HOME/.config/hypr/UserConfigs/UserLauncherBinds.conf.base"
+  local launcher_conf="$HOME/.config/hypr/UserConfigs/UserLauncherBinds.conf"
+  if [[ -f "$launcher_base" && ! -f "$launcher_conf" ]]; then
+    cp "$launcher_base" "$launcher_conf"
+    ok "UserLauncherBinds.conf creado desde plantilla base"
+  fi
+
   if [[ -f "$REPO_DIR/.zshrc" ]]; then
     backup_target "$REPO_DIR/.zshrc" "$HOME/.zshrc"
   fi
@@ -1138,6 +1185,7 @@ main() {
   confirm_or_exit "Continuar"
   load_previous_option_defaults
   select_optional_modules
+  setup_wizard
 
   local pkgm
   pkgm="$(detect_pkg_manager)"

@@ -9,7 +9,7 @@
     "steamWeAssets": "~/.local/share/Steam/steamapps/common/wallpaper_engine/assets",
     "steam": "~/.local/share/Steam"
   },
-  "monitor": "DP-1",
+  "monitor": "eDP-1",
   "ollama": {
     "url": "http://localhost:11434",
     "model": "gemma3:4b"
@@ -46,14 +46,15 @@
   "optimization": {
     "enabled": false,
     "toggles": {
-      "disableBorders": false,
-      "disableTransparency": false,
-      "disableAnimations": false,
-      "disableBlur": false,
-      "disableShadows": false,
-      "disableRounding": false,
-      "disableGaps": false,
-      "disableDimInactive": false
+      "disableBorders": true,
+      "disableTransparency": true,
+      "disableAnimations": true,
+      "disableBlur": true,
+      "disableShadows": true,
+      "disableRounding": true,
+      "disableGaps": true,
+      "disableDimInactive": true,
+      "disableQuickshellAnimations": true
     },
     "restoreState": null
   },
@@ -90,15 +91,15 @@
     "lockscreen": false,
     "appLauncher": {
       "enabled": true,
-      "backend": "quickshell"
+      "backend": "fuzzel"
     },
     "wallpaperSelector": {
       "enabled": true,
       "showColorDots": false,
-      "backend": "quickshell",
+      "backend": "rofi",
       "autoChangeEnabled": false
     },
-    "windowSwitcher": true,
+    "windowSwitcher": false,
     "powerMenu": {
       "enabled": true,
       "items": [

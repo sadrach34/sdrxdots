@@ -1,0 +1,22 @@
+# /* ---- 💫 https://github.com/JaKooLit 💫 ---- */  #
+# Contributor: sadrach34 (mods and maintenance)
+
+# This file is for application launcher keybinds (Rofi, Quickshell, or Fuzzel)
+# You can modify this file locally. The base version is UserLauncherBinds.conf.base
+
+# App Launcher
+bind = $mainMod, Space, exec, $UserScripts/LaunchAppLauncher.sh # App Launcher (QS/Rofi/Fuzzel)
+# bind = $mainMod, Space, exec, rofi -show drun # Rofi direct launcher (optional)
+# bind = $mainMod, Space, exec, fuzzel # Fuzzel direct launcher (optional)
+
+# Wallpaper Picker
+bind = CTRL $mainMod, W, exec, $UserScripts/LaunchWallpaperPicker.sh # WallpaperPicker (QS/Rofi)
+
+# Rofi specific (you can comment these if using Quickshell only)
+bind = ALT $mainMod, E, exec, $scriptsDir/RofiEmoji.sh # emoji menu
+bind = CTRL $mainMod, R, exec, $scriptsDir/RofiThemeSelector.sh # KooL Rofi Menu Theme Selector
+bind = CTRL SHIFT $mainMod, R, exec, pkill rofi || true && $scriptsDir/RofiTRhemeSelector-modified.sh # modified Rofi Theme Selector
+bind = $mainMod, M, exec, $UserScripts/RofiBeats.sh # online music using rofi
+bind = $mainMod, B, exec, $UserScripts/RofiSSH.sh # online music using rofi
+bind = ALT $mainMod, C, exec, $UserScripts/RofiCalc.sh # calculator (qalculate)
+bind = SHIFT $mainMod, K, exec, $scriptsDir/KeyBinds.sh # search keybinds via rofi

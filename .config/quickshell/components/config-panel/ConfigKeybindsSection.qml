@@ -17,10 +17,12 @@ Column {
   property var _savedBinds: []
   property var _systemLines: []
   property var _userLines: []
+  property var _launcherLines: []
   property bool _defaultsCaptured: false
   property var _defaultBinds: []
   property var _defaultSystemLines: []
   property var _defaultUserLines: []
+  property var _defaultLauncherLines: []
 
   width: parent.width
   spacing: 8
@@ -332,14 +334,17 @@ Column {
 
     var systemText = keybindsFile.text()
     var userText = userKeybindsFile.text()
+    var launcherText = userLauncherBindsFile.text()
 
     var parsedSystem = _parseFile(systemText, "SYSTEM")
     var parsedUser = _parseFile(userText, "USER")
+    var parsedLauncher = _parseFile(launcherText, "LAUNCHER")
 
     _systemLines = parsedSystem.lines
     _userLines = parsedUser.lines
+    _launcherLines = parsedLauncher.lines
 
-    var merged = _sortRows(parsedSystem.rows.concat(parsedUser.rows))
+    var merged = _sortRows(parsedSystem.rows.concat(parsedUser.rows).concat(parsedLauncher.rows))
     allBinds = _deepCopy(merged)
     _savedBinds = _deepCopy(merged)
     hasDirtyBinds = false
@@ -348,6 +353,7 @@ Column {
       _defaultBinds = _deepCopy(merged)
       _defaultSystemLines = _deepCopy(parsedSystem.lines)
       _defaultUserLines = _deepCopy(parsedUser.lines)
+      _defaultLauncherLines = _deepCopy(parsedLauncher.lines)
       _defaultsCaptured = true
     }
 
@@ -406,13 +412,16 @@ Column {
 
     var systemRows = allBinds.filter(function(row) { return row.source === "SYSTEM" })
     var userRows = allBinds.filter(function(row) { return row.source === "USER" })
+    var launcherRows = allBinds.filter(function(row) { return row.source === "LAUNCHER" })
 
     var systemLines = _rebuildSourceLines(_systemLines, systemRows)
     var userLines = _rebuildSourceLines(_userLines, userRows)
+    var launcherLines = _rebuildSourceLines(_launcherLines, launcherRows)
 
     try {
       keybindsFile.setText(systemLines.join("\n").replace(/\n+$/g, "") + "\n")
       userKeybindsFile.setText(userLines.join("\n").replace(/\n+$/g, "") + "\n")
+      userLauncherBindsFile.setText(launcherLines.join("\n").replace(/\n+$/g, "") + "\n")
     } catch (e) {
       errorText = "No se pudieron guardar los keybinds"
       console.log("ConfigKeybindsSection: save failed", e)
@@ -421,6 +430,7 @@ Column {
 
     _systemLines = systemLines
     _userLines = userLines
+    _launcherLines = launcherLines
     _savedBinds = _deepCopy(_sortRows(allBinds))
     hasDirtyBinds = false
     return true
@@ -430,6 +440,7 @@ Column {
     _defaultBinds = _deepCopy(_savedBinds)
     _defaultSystemLines = _deepCopy(_systemLines)
     _defaultUserLines = _deepCopy(_userLines)
+    _defaultLauncherLines = _deepCopy(_launcherLines)
     _defaultsCaptured = true
   }
 
@@ -461,6 +472,17 @@ Column {
     watchChanges: true
     onFileChanged: {
       userKeybindsFile.reload()
+      if (!root.hasDirtyBinds) root._reloadFromFiles()
+    }
+  }
+
+  FileView {
+    id: userLauncherBindsFile
+    path: root.panel ? (root.panel.homeDir + "/.config/hypr/UserConfigs/UserLauncherBinds.conf") : ""
+    preload: true
+    watchChanges: true
+    onFileChanged: {
+      userLauncherBindsFile.reload()
       if (!root.hasDirtyBinds) root._reloadFromFiles()
     }
   }
@@ -696,6 +718,7 @@ Column {
           onClicked: {
             root._open(panel.homeDir + "/.config/hypr/configs/Keybinds.conf")
             root._open(panel.homeDir + "/.config/hypr/UserConfigs/UserKeybinds.conf")
+            root._open(panel.homeDir + "/.config/hypr/UserConfigs/UserLauncherBinds.conf")
           }
         }
       }
