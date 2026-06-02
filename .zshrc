@@ -2,6 +2,8 @@
 # export PATH=$HOME/bin:/usr/local/bin:$PATH
 export PATH="$HOME/.local/bin:$PATH"
 
+cd "$HOME"
+
 export ZSH="$HOME/.oh-my-zsh"
 export MOZ_ENABLE_WAYLAND=1
 export PATH=~/.npm-global/bin:$PATH
@@ -23,7 +25,13 @@ source $ZSH/oh-my-zsh.sh
 # Display Pokemon-colorscripts
 # Project page: https://gitlab.com/phoneybadger/pokemon-colorscripts#on-other-distros-and-macos
 #pokemon-colorscripts --no-title -s -r #without fastfetch
-pokemon-colorscripts --no-title -s -r | fastfetch -c $HOME/.config/fastfetch/config-pokemon.jsonc --logo-type file-raw --logo-height 10 --logo-width 5 --logo -
+pokemon_args=(--no-title -r)
+pokemon_shiny_label=
+if (( RANDOM < 8 )); then
+  pokemon_args+=(-s)
+  pokemon_shiny_label=SHINY
+fi
+pokemon-colorscripts "${pokemon_args[@]}" | POKEMON_SHINY_LABEL=$pokemon_shiny_label fastfetch -c $HOME/.config/fastfetch/config-pokemon.jsonc --logo-type file-raw --logo-height 10 --logo-width 5 --logo -
 
 # fastfetch. Will be disabled if above colorscript was chosen to install
 #fastfetch -c $HOME/.config/fastfetch/config-compact.jsonc
@@ -36,7 +44,7 @@ alias lla='ls -la'
 alias lt='ls --tree'
 alias rthunar='sudo --preserve-env=WAYLAND_DISPLAY,XDG_RUNTIME_DIR thunar'
 alias cls='clear'
-alias ff='clear && fastfetch'
+source "$HOME/.config/fastfetch/ff-random.zsh"
 
 #------------------------------------------------------------------------------------------------------------------------
 #ACTUALIZACIÓN DEL SISTEMA (PACMAN + AUR)
@@ -146,6 +154,8 @@ glados() {
 }
 alias gl='glados'
 
+alias cobble='cd ~/MinecraftServer && bash start.sh'
+
 alias windows='sudo grub-reboot "Windows Boot Manager (en /dev/sdc1)" && reboot'
 
 #
@@ -189,6 +199,29 @@ chadsay() {
     npx chadsay "$@"
 }
 
-alias ed='edex-ui'
-alias beat='python3 ~/.config/hypr/scripts/SDRX-Beat/main.py'
-alias sdrx-beat='python3 ~/.config/hypr/scripts/SDRX-Beat/main.py '
+# ── SDRX-Beat shell integration ───────────────────────────────────────────────
+if [[ -f "$HOME/.config/sdrx-beat/check-update.sh" ]]; then
+    source "$HOME/.config/sdrx-beat/check-update.sh"
+fi
+
+# preexec: show SDRX-Beat update notice before yay or sudo pacman -Syu
+_sdrx_beat_preexec() {
+    case "$1" in
+        yay\ *|yay|sudo\ pacman\ *-Syu*|sudo\ pacman\ *-Syuu*)
+            _sdrx_beat_check_update ;;
+    esac
+}
+autoload -Uz add-zsh-hook 2>/dev/null
+add-zsh-hook preexec _sdrx_beat_preexec 2>/dev/null
+
+# Ensure ~/.local/bin is in PATH
+[[ ":$PATH:" != *":$HOME/.local/bin:"* ]] && export PATH="$HOME/.local/bin:$PATH"
+# ── end SDRX-Beat ─────────────────────────────────────────────────────────────
+
+# pnpm
+export PNPM_HOME="/home/sadrach/.local/share/pnpm"
+case ":$PATH:" in
+  *":$PNPM_HOME:"*) ;;
+  *) export PATH="$PNPM_HOME:$PATH" ;;
+esac
+# pnpm end
