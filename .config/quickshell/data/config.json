@@ -9,7 +9,7 @@
     "steamWeAssets": "~/.local/share/Steam/steamapps/common/wallpaper_engine/assets",
     "steam": "~/.local/share/Steam"
   },
-  "monitor": "eDP-1",
+  "monitor": "DP-1",
   "ollama": {
     "url": "http://localhost:11434",
     "model": "gemma3:4b"
@@ -46,15 +46,15 @@
   "optimization": {
     "enabled": false,
     "toggles": {
-      "disableBorders": true,
-      "disableTransparency": true,
-      "disableAnimations": true,
-      "disableBlur": true,
-      "disableShadows": true,
-      "disableRounding": true,
-      "disableGaps": true,
-      "disableDimInactive": true,
-      "disableQuickshellAnimations": true
+      "disableBorders": false,
+      "disableTransparency": false,
+      "disableAnimations": false,
+      "disableBlur": false,
+      "disableShadows": false,
+      "disableRounding": false,
+      "disableGaps": false,
+      "disableDimInactive": false,
+      "disableQuickshellAnimations": false
     },
     "restoreState": null
   },
@@ -91,7 +91,7 @@
     "lockscreen": false,
     "appLauncher": {
       "enabled": true,
-      "backend": "fuzzel"
+      "backend": "quickshell"
     },
     "wallpaperSelector": {
       "enabled": true,
@@ -137,8 +137,9 @@
   "appearance": {
     "colorMode": "dark"
   },
-  "secondary_monitor": "auto",
+  "secondary_monitor": "HDMI-A-1",
   "monitors_list": [
-    "eDP-1"
+    "DP-1",
+    "HDMI-A-1"
   ]
 }
