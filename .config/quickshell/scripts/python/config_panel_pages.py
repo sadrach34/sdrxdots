@@ -1,4 +1,8 @@
-from gi.repository import Gtk, Adw, GLib
+from gi.repository import Gtk, Adw, GLib, Pango
+import json
+import sqlite3
+from pathlib import Path
+from copy import deepcopy
 from config_panel_constants import *
 from config_panel_helpers import (
     _detect_terminals, _read_theme_mode,
@@ -165,10 +169,153 @@ class PageBuilderMixin:
         row.set_activatable(False)
         return row
 
+    def _strip_ext(self, name: str) -> str:
+        return re.sub(r'\.(jpg|jpeg|png|webp|gif|mp4|mkv|mov|webm|avi)$', '', name, flags=re.IGNORECASE)
+
+    def _action_row(self, title: str, subtitle: str, callback, button_label: str) -> Adw.ActionRow:
+        row = Adw.ActionRow(title=title, subtitle=subtitle)
+        btn = Gtk.Button(label=button_label)
+        btn.add_css_class("suggested-action")
+        btn.connect("clicked", lambda *_: callback())
+        row.add_suffix(btn)
+        row.set_activatable_widget(btn)
+        return row
+
     def _page(self, groups: list[Adw.PreferencesGroup]) -> Adw.PreferencesPage:
         page = Adw.PreferencesPage()
         for g in groups:
             page.add(g)
+        return page
+
+    def _get_wallpapers_from_db(self) -> list[dict]:
+        wallpapers = []
+        try:
+            db_dir = HOME / ".local/share/quickshell/QML/OfflineStorage/Databases"
+            if not db_dir.exists():
+                return []
+            
+            for p in db_dir.glob("*.sqlite"):
+                conn = sqlite3.connect(p)
+                cursor = conn.cursor()
+                try:
+                    cursor.execute("SELECT name, thumb FROM meta WHERE type IS NOT NULL")
+                    rows = cursor.fetchall()
+                    for row in rows:
+                        wallpapers.append({"name": row[0], "thumb": row[1]})
+                    conn.close()
+                    if wallpapers:
+                        break
+                except sqlite3.OperationalError:
+                    conn.close()
+                    continue
+        except Exception as e:
+            print(f"Error reading wallpapers from DB: {e}")
+        
+        wallpapers.sort(key=lambda x: x["name"].lower())
+        return wallpapers
+
+    def _build_clock_page(self) -> Adw.PreferencesPage:
+        page = Adw.PreferencesPage()
+        group = Adw.PreferencesGroup(
+            title="Wallpaper Clock Positions",
+            description="Configure the clock position for each wallpaper",
+        )
+        
+        search_row = Adw.ActionRow()
+        search_entry = Gtk.SearchEntry(placeholder_text="Search wallpapers…", hexpand=True)
+        search_row.set_child(search_entry)
+        group.add(search_row)
+        
+        wallpapers_raw = self._get_wallpapers_from_db()
+        # Use full filenames as keys
+        wallpapers_map = {w["name"]: w for w in wallpapers_raw}
+        
+        # Add keys from positions.json that aren't in DB
+        for name in self._positions:
+            if name != "default" and name not in wallpapers_map:
+                wallpapers_map[name] = {"name": name, "thumb": None}
+        
+        sorted_names = sorted(wallpapers_map.keys(), key=lambda x: x.lower())
+        
+        listbox = Gtk.ListBox()
+        listbox.set_selection_mode(Gtk.SelectionMode.NONE)
+        listbox.add_css_class("boxed-list")
+
+        def auto_save_positions():
+            save_json(POSITIONS_JSON_PATH, self._positions)
+            self._saved_positions = deepcopy(self._positions)
+            # Prevent the file watcher from triggering a full UI reload
+            import time
+            self._suppress_external_reload_until = time.time() + 1.2
+        
+        def make_pos_switch(title, key, pos_data, name):
+            row = Adw.SwitchRow(title=title)
+            row.set_active(bool(pos_data.get(key, False)))
+            def on_changed(r, _p):
+                self._positions[name][key] = r.get_active()
+                auto_save_positions()
+            row.connect("notify::active", on_changed)
+            return row
+
+        def make_pos_spin(title, key, pos_data, name, min_v, max_v, step):
+            row = Adw.ActionRow(title=title)
+            val = float(pos_data.get(key, 0))
+            adj = Gtk.Adjustment(value=val, lower=min_v, upper=max_v, step_increment=step)
+            spin = Gtk.SpinButton(adjustment=adj, numeric=True)
+            spin.set_valign(Gtk.Align.CENTER)
+            def on_changed(s):
+                self._positions[name][key] = int(s.get_value())
+                auto_save_positions()
+            spin.connect("value-changed", on_changed)
+            row.add_suffix(spin)
+            return row
+
+        for name in sorted_names:
+            wall = wallpapers_map[name]
+            thumb_path = wall["thumb"]
+            
+            expander = Adw.ExpanderRow(title=name)
+            
+            prefix_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+            if thumb_path and Path(thumb_path).exists():
+                 img = Gtk.Image.new_from_file(thumb_path)
+                 img.set_pixel_size(48)
+                 prefix_box.append(img)
+            else:
+                 icon = Gtk.Image.new_from_icon_name("image-missing-symbolic")
+                 icon.set_pixel_size(48)
+                 prefix_box.append(icon)
+            expander.add_prefix(prefix_box)
+
+            if name not in self._positions:
+                self._positions[name] = deepcopy(self._positions.get("default", {}))
+            
+            pos_data = self._positions[name]
+            
+            expander.add_row(make_pos_switch("Enabled", "enabled", pos_data, name))
+            expander.add_row(make_pos_switch("Center on Screen", "centerOnScreen", pos_data, name))
+            expander.add_row(make_pos_switch("Center X", "centerX", pos_data, name))
+            expander.add_row(make_pos_switch("Center Y", "centerY", pos_data, name))
+            expander.add_row(make_pos_spin("X Position", "x", pos_data, name, -5000, 5000, 10))
+            expander.add_row(make_pos_spin("Y Position", "y", pos_data, name, -5000, 5000, 10))
+            expander.add_row(make_pos_spin("Day Size", "daySize", pos_data, name, 1, 500, 1))
+            expander.add_row(make_pos_spin("Date Size", "dateSize", pos_data, name, 1, 500, 1))
+            expander.add_row(make_pos_spin("Time Size", "timeSize", pos_data, name, 1, 500, 1))
+            
+            listbox.append(expander)
+
+        group.add(listbox)
+        page.add(group)
+        
+        def on_search_changed(entry):
+            text = entry.get_text().lower()
+            child = listbox.get_first_child()
+            while child:
+                if isinstance(child, Adw.ExpanderRow):
+                    child.set_visible(text in child.get_title().lower())
+                child = child.get_next_sibling()
+        
+        search_entry.connect("search-changed", on_search_changed)
         return page
 
     def _terminal_row(self) -> Adw.ComboRow:
@@ -373,6 +520,8 @@ class PageBuilderMixin:
                                min_val=1, max_val=20),
                 self._entry_row("Steam Workshop",  ["paths", "steamWorkshop"]),
                 self._entry_row("Steam WE assets", ["paths", "steamWeAssets"]),
+                self._entry_row("Clock positions file", ["paths", "clockPositions"]),
+                self._action_row("Rescan wallpapers", "Scan for new images or videos", self._on_rescan_wallpapers, "Rescan"),
             ], description="Display-related settings: bar and wallpapers"),
         ])
 
@@ -410,7 +559,7 @@ class PageBuilderMixin:
         return self._page([
             self._group("App Launcher", [
                 self._switch_row("Enabled",        ["components", "appLauncher", "enabled"]),
-                self._combo_row("Backend",         ["components", "appLauncher", "backend"], ["quickshell", "rofi"]),
+                self._combo_row("Backend",         ["components", "appLauncher", "backend"], ["quickshell", "rofi", "fuzzel"]),
             ]),
             self._group("Wallpaper Selector", [
                 self._switch_row("Enabled",        ["components", "wallpaperSelector", "enabled"]),

@@ -6,6 +6,7 @@ from config_panel_helpers import (
     apply_waybar, sync_waybar_links, _waybar_last_error_summary,
     _sync_userdefaults_terminal, _read_userdefaults_terminal,
     _read_compositor, _read_gpu_vendor, _sync_theme_mode,
+    _sync_envariables_gpu, _read_theme_mode,
     _parse_startup_apps, _parse_workspace_rules,
     _sync_startup_apps, _sync_workspace_rules,
     apply_hypr_reload, sync_hypridle_conf, apply_hypridle_enabled,
@@ -18,6 +19,8 @@ class ActionsMixin:
     def _reload_from_disk(self, changed: list[str] | None = None):
         self._config = load_json(CONFIG_PATH)
         self._apps = load_json(APPS_PATH)
+        self._positions = load_json(POSITIONS_JSON_PATH)
+        self._migrate_positions_to_extensions()
         self._skwd_wall_config = load_json(SKWD_WALL_CONFIG_PATH)
         self._saved_skwd_wall_config = deepcopy(self._skwd_wall_config)
         self._load_keybinds()
@@ -30,12 +33,42 @@ class ActionsMixin:
         self._apply_color_mode_style()
         self._saved_config = deepcopy(self._config)
         self._saved_apps = deepcopy(self._apps)
+        self._saved_positions = deepcopy(self._positions)
         self._mark_saved()
         self._reload_banner.set_revealed(False)
         self._external_conflict_paths = []
         self._refresh_pages()
         if changed:
             self._toast("Reloaded external changes: " + ", ".join(changed))
+
+    def _migrate_positions_to_extensions(self):
+        # We need a way to get the database info here too, but ActionsMixin doesn't have it.
+        # I'll use a simplified migration that merges stem into .webp if both exist in JSON,
+        # and also do a basic check on the filesystem for common extensions if needed.
+        # But for correctness, let's just use the current JSON keys.
+        
+        new_pos = {"default": self._positions.get("default", {})}
+        
+        # 1. Identify all extensioned keys currently in JSON
+        ext_keys = [k for k in self._positions.keys() if "." in k]
+        stem_to_ext = {}
+        for k in ext_keys:
+            stem = re.sub(r'\.(jpg|jpeg|png|webp|gif|mp4|mkv|mov|webm|avi)$', '', k, flags=re.IGNORECASE)
+            stem_to_ext[stem] = k
+            new_pos[k] = self._positions[k]
+
+        # 2. Merge stems
+        for k, v in self._positions.items():
+            if k == "default" or "." in k: continue
+            
+            target = stem_to_ext.get(k)
+            if target:
+                # Merge logic
+                for pk, pv in v.items():
+                    if pv not in (0, False, None, 90, 25, 22):
+                        new_pos[target][pk] = pv
+        
+        self._positions = new_pos
 
     def _on_save(self, _widget):
         prev_bar    = get_nested(self._saved_config, ["components", "bar", "enabled"], True)
@@ -56,6 +89,7 @@ class ActionsMixin:
         self._normalize_apps_data()
         save_json(CONFIG_PATH, self._config)
         save_json(APPS_PATH, self._apps)
+        save_json(POSITIONS_JSON_PATH, self._positions)
         save_json(SKWD_WALL_CONFIG_PATH, self._skwd_wall_config)
 
         cur_bar = get_nested(self._config, ["components", "bar", "enabled"], True)
@@ -167,6 +201,7 @@ class ActionsMixin:
 
         self._saved_config = deepcopy(self._config)
         self._saved_apps   = deepcopy(self._apps)
+        self._saved_positions = deepcopy(self._positions)
         self._saved_skwd_wall_config = deepcopy(self._skwd_wall_config)
         self._suppress_external_reload_until = time.time() + 1.2
         self._mark_saved()
@@ -178,6 +213,7 @@ class ActionsMixin:
     def _on_discard(self, _widget):
         self._config = deepcopy(self._saved_config)
         self._apps   = deepcopy(self._saved_apps)
+        self._positions = deepcopy(self._saved_positions)
         self._skwd_wall_config = deepcopy(self._saved_skwd_wall_config)
         self._keybinds_all = deepcopy(self._keybinds_saved)
         self._selected_terminal = _read_userdefaults_terminal()
@@ -195,6 +231,7 @@ class ActionsMixin:
     def _on_defaults(self, _widget):
         self._config = deepcopy(self._defaults_config)
         self._apps   = deepcopy(self._defaults_apps)
+        self._positions = deepcopy(self._defaults_positions)
         self._skwd_wall_config = deepcopy(self._defaults_skwd_wall_config)
         self._selected_terminal = _read_userdefaults_terminal()
         self._selected_compositor = _read_compositor()
@@ -209,6 +246,28 @@ class ActionsMixin:
 
     def _on_reload_external(self, _widget):
         self._reload_from_disk(self._external_conflict_paths)
+
+    def _on_rescan_wallpapers(self):
+        try:
+            db_dir = HOME / ".local/share/quickshell/QML/OfflineStorage/Databases"
+            if not db_dir.exists():
+                self._toast("Database directory not found")
+                return
+            
+            found = False
+            for p in db_dir.glob("*.sqlite"):
+                res = subprocess.run(["sqlite3", str(p), "SELECT name FROM sqlite_master WHERE type='table' AND name='state';"],
+                                     capture_output=True, text=True)
+                if "state" in res.stdout:
+                    subprocess.run(["sqlite3", str(p), "DELETE FROM state WHERE key='last_rebuild';"])
+                    found = True
+            
+            if found:
+                self._toast("Rescan triggered (Database reset)")
+            else:
+                self._toast("No active database found to reset")
+        except Exception as e:
+            self._toast(f"Rescan error: {e}")
 
     def _update_title(self):
         self.set_title("SdrxDots Settings*" if self._unsaved else "SdrxDots Settings")

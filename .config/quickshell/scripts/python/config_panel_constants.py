@@ -27,6 +27,7 @@ WAYBAR_CONFIG_LINK   = HOME / ".config/waybar/config"
 WAYBAR_STYLE_LINK    = HOME / ".config/waybar/style.css"
 WAYBAR_STARTUP_LOG   = HOME / ".cache/quickshell/waybar-startup.log"
 SKWD_WALL_CONFIG_PATH = HOME / ".config/skwd-wall/config.json"
+POSITIONS_JSON_PATH  = HOME / ".config/quickshell/components/ModernClockWidget/positions.json"
 
 KNOWN_TERMINALS = [
     "kitty",
@@ -70,6 +71,7 @@ PAGES = [
     ("Screen",       "video-display-symbolic"),
     ("Components",   "view-app-grid-symbolic"),
     ("Power",        "battery-symbolic"),
+    ("Clock",        "preferences-system-time-symbolic"),
     ("Rofi/Quickshell", "preferences-desktop-wallpaper-symbolic"),
     ("Integrations", "applications-engineering-symbolic"),
     ("Apps",         "applications-symbolic"),

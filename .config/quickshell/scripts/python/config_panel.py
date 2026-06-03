@@ -2,12 +2,13 @@
 import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Gtk, Adw, GLib, Gio
+from gi.repository import Gtk, Adw, GLib, Gio, Pango
 
 import json
 import subprocess
 import time
 import shutil
+import sqlite3
 from pathlib import Path
 from copy import deepcopy
 import re
@@ -30,6 +31,7 @@ WAYBAR_CONFIG_LINK   = HOME / ".config/waybar/config"
 WAYBAR_STYLE_LINK    = HOME / ".config/waybar/style.css"
 WAYBAR_STARTUP_LOG   = HOME / ".cache/quickshell/waybar-startup.log"
 SKWD_WALL_CONFIG_PATH = HOME / ".config/skwd-wall/config.json"
+POSITIONS_JSON_PATH  = HOME / ".config/quickshell/components/ModernClockWidget/positions.json"
 
 KNOWN_TERMINALS = [
     "kitty",
@@ -838,6 +840,7 @@ PAGES = [
     ("Screen",       "video-display-symbolic"),
     ("Components",   "view-app-grid-symbolic"),
     ("Power",        "battery-symbolic"),
+    ("Clock",        "preferences-system-time-symbolic"),
     ("Hypridle",     "preferences-system-time-symbolic"),
     ("Integrations", "applications-engineering-symbolic"),
     ("Apps",         "applications-symbolic"),
@@ -869,10 +872,14 @@ class ConfigWindow(Adw.ApplicationWindow):
         if get_nested(self._config, ["appearance", "colorMode"], None) is None:
             set_nested(self._config, ["appearance", "colorMode"], _read_theme_mode())
         self._apps   = load_json(APPS_PATH)
+        self._positions = load_json(POSITIONS_JSON_PATH)
+        self._migrate_positions_to_extensions()
         self._defaults_config = deepcopy(self._config)
         self._defaults_apps   = deepcopy(self._apps)
+        self._defaults_positions = deepcopy(self._positions)
         self._saved_config    = deepcopy(self._config)
         self._saved_apps      = deepcopy(self._apps)
+        self._saved_positions = deepcopy(self._positions)
         self._unsaved = False
         self._ensure_valid_monitor()
 
@@ -960,6 +967,7 @@ class ConfigWindow(Adw.ApplicationWindow):
             self._build_screen_page,
             self._build_components_page,
             self._build_power_page,
+            self._build_clock_page,
             self._build_hypridle_page,
             self._build_integrations_page,
             self._build_apps_page,
@@ -1126,6 +1134,7 @@ class ConfigWindow(Adw.ApplicationWindow):
             "Startup_Apps.conf": STARTUP_APPS_PATH,
             "WindowRules.conf": WINDOW_RULES_PATH,
             "hypridle.conf": HYPRIDLE_CONF_PATH,
+            "positions.json": POSITIONS_JSON_PATH,
         }
 
     def _mtime(self, path: Path) -> float | None:
@@ -1163,6 +1172,7 @@ class ConfigWindow(Adw.ApplicationWindow):
     def _reload_from_disk(self, changed: list[str] | None = None):
         self._config = load_json(CONFIG_PATH)
         self._apps = load_json(APPS_PATH)
+        self._positions = load_json(POSITIONS_JSON_PATH)
         self._ensure_valid_monitor()
         self._load_keybinds()
         self._selected_terminal = _read_userdefaults_terminal()
@@ -1175,6 +1185,7 @@ class ConfigWindow(Adw.ApplicationWindow):
         self._apply_color_mode_style()
         self._saved_config = deepcopy(self._config)
         self._saved_apps = deepcopy(self._apps)
+        self._saved_positions = deepcopy(self._positions)
         self._mark_saved()
         self._reload_banner.set_revealed(False)
         self._external_conflict_paths = []
@@ -1203,6 +1214,7 @@ class ConfigWindow(Adw.ApplicationWindow):
         self._normalize_apps_data()
         save_json(CONFIG_PATH, self._config)
         save_json(APPS_PATH, self._apps)
+        save_json(POSITIONS_JSON_PATH, self._positions)
 
         cur_bar = get_nested(self._config, ["components", "bar", "enabled"], True)
         cur_cfg_raw = get_nested(self._config, ["components", "bar", "waybarConfig"], "~/.config/waybar/config")
@@ -1346,6 +1358,7 @@ class ConfigWindow(Adw.ApplicationWindow):
 
         self._saved_config = deepcopy(self._config)
         self._saved_apps   = deepcopy(self._apps)
+        self._saved_positions = deepcopy(self._positions)
         self._suppress_external_reload_until = time.time() + 1.2
         self._mark_saved()
         self._reload_banner.set_revealed(False)
@@ -1356,6 +1369,7 @@ class ConfigWindow(Adw.ApplicationWindow):
     def _on_discard(self, _widget):
         self._config = deepcopy(self._saved_config)
         self._apps   = deepcopy(self._saved_apps)
+        self._positions = deepcopy(self._saved_positions)
         self._keybinds_all = deepcopy(self._keybinds_saved)
         self._selected_terminal = _read_userdefaults_terminal()
         self._selected_shell = _read_userdefaults_shell()
@@ -1373,6 +1387,7 @@ class ConfigWindow(Adw.ApplicationWindow):
     def _on_defaults(self, _widget):
         self._config = deepcopy(self._defaults_config)
         self._apps   = deepcopy(self._defaults_apps)
+        self._positions = deepcopy(self._defaults_positions)
         self._selected_terminal = _read_userdefaults_terminal()
         self._selected_shell = _read_userdefaults_shell()
         self._selected_compositor = _read_compositor()
@@ -1761,6 +1776,222 @@ class ConfigWindow(Adw.ApplicationWindow):
         row.set_activatable(False)
         return row
 
+    def _action_row(self, title: str, subtitle: str, callback, button_label: str) -> Adw.ActionRow:
+        row = Adw.ActionRow(title=title, subtitle=subtitle)
+        btn = Gtk.Button(label=button_label)
+        btn.add_css_class("suggested-action")
+        btn.connect("clicked", lambda *_: callback())
+        row.add_suffix(btn)
+        row.set_activatable_widget(btn)
+        return row
+
+    def _on_rescan_wallpapers(self):
+        try:
+            db_dir = HOME / ".local/share/quickshell/QML/OfflineStorage/Databases"
+            if not db_dir.exists():
+                self._toast("Database directory not found")
+                return
+            
+            # Find the sqlite file that has the 'state' table
+            found = False
+            for p in db_dir.glob("*.sqlite"):
+                # We check if it's our database by looking for the 'meta' and 'state' tables
+                res = subprocess.run(["sqlite3", str(p), "SELECT name FROM sqlite_master WHERE type='table' AND name='state';"],
+                                     capture_output=True, text=True)
+                if "state" in res.stdout:
+                    subprocess.run(["sqlite3", str(p), "DELETE FROM state WHERE key='last_rebuild';"])
+                    found = True
+                    # Do not break, there might be multiple or we might want to be sure
+            
+            if found:
+                self._toast("Rescan triggered (Database reset)")
+            else:
+                self._toast("No active database found to reset")
+        except Exception as e:
+            self._toast(f"Rescan error: {e}")
+
+    def _strip_ext(self, name: str) -> str:
+        return re.sub(r'\.(jpg|jpeg|png|webp|gif|mp4|mkv|mov|webm|avi)$', '', name, flags=re.IGNORECASE)
+
+    def _migrate_positions_to_extensions(self):
+        wallpapers = self._get_wallpapers_from_db()
+        # Create a map of stem -> full_filename
+        stem_to_ext = {}
+        for w in wallpapers:
+            name = w["name"]
+            stem = self._strip_ext(name)
+            if stem not in stem_to_ext:
+                stem_to_ext[stem] = name
+        
+        new_pos = {"default": self._positions.get("default", {})}
+        
+        # First, preserve all existing extensioned keys
+        for key, val in self._positions.items():
+            if key == "default": continue
+            if "." in key: # Has extension
+                new_pos[key] = val
+        
+        # Then, for each stem key, merge into extensioned key if it exists
+        for key, val in self._positions.items():
+            if key == "default" or "." in key: continue
+            
+            # This is a stem key. Find its extensioned counterpart.
+            ext_key = stem_to_ext.get(key)
+            if ext_key:
+                # Merge: stem data overrides default but extensioned key might already have data.
+                # If extensioned key exists, we prefer non-zero/non-default values from stem.
+                if ext_key not in new_pos:
+                    new_pos[ext_key] = val
+                else:
+                    # Merge logic: if stem has a value that is NOT default/zero, use it.
+                    for k, v in val.items():
+                        if v not in (0, False, None, 90, 25, 22): # Basic default check
+                            new_pos[ext_key][k] = v
+            # If no extensioned counterpart found on disk, we just discard the stem key
+            # as per user request to clean up.
+            
+        self._positions = new_pos
+
+    def _get_wallpapers_from_db(self) -> list[dict]:
+        wallpapers = []
+        try:
+            db_dir = HOME / ".local/share/quickshell/QML/OfflineStorage/Databases"
+            if not db_dir.exists():
+                return []
+            
+            # Find the sqlite file that has the 'meta' table
+            for p in db_dir.glob("*.sqlite"):
+                conn = sqlite3.connect(p)
+                cursor = conn.cursor()
+                try:
+                    cursor.execute("SELECT name, thumb FROM meta WHERE type IS NOT NULL")
+                    rows = cursor.fetchall()
+                    for row in rows:
+                        wallpapers.append({"name": row[0], "thumb": row[1]})
+                    conn.close()
+                    if wallpapers:
+                        break # Found it
+                except sqlite3.OperationalError:
+                    conn.close()
+                    continue
+        except Exception as e:
+            print(f"Error reading wallpapers from DB: {e}")
+        
+        # Sort by name, but prioritize those in positions.json if needed
+        # For now just sort by name
+        wallpapers.sort(key=lambda x: x["name"].lower())
+        return wallpapers
+
+    def _build_clock_page(self) -> Adw.PreferencesPage:
+        page = Adw.PreferencesPage()
+        
+        # Main group for individual wallpaper clock settings
+        group = Adw.PreferencesGroup(
+            title="Wallpaper Clock Positions",
+            description="Configure the clock position for each wallpaper",
+        )
+        
+        # Search entry to filter wallpapers
+        search_row = Adw.ActionRow()
+        search_entry = Gtk.SearchEntry(placeholder_text="Search wallpapers…", hexpand=True)
+        search_row.set_child(search_entry)
+        group.add(search_row)
+        
+        wallpapers_raw = self._get_wallpapers_from_db()
+        # Use full filenames as keys
+        wallpapers_map = {w["name"]: w for w in wallpapers_raw}
+        
+        # Add keys from positions.json that aren't in DB
+        for name in self._positions:
+            if name != "default" and name not in wallpapers_map:
+                wallpapers_map[name] = {"name": name, "thumb": None}
+        
+        sorted_names = sorted(wallpapers_map.keys(), key=lambda x: x.lower())
+        
+        listbox = Gtk.ListBox()
+        listbox.set_selection_mode(Gtk.SelectionMode.NONE)
+        listbox.add_css_class("boxed-list")
+        
+        def auto_save_positions():
+            save_json(POSITIONS_JSON_PATH, self._positions)
+            self._saved_positions = deepcopy(self._positions)
+            # Prevent the file watcher from triggering a full UI reload
+            self._suppress_external_reload_until = time.time() + 1.2
+            # Update the snapshot to match the newly saved file
+            self._file_mtimes["positions.json"] = self._mtime(POSITIONS_JSON_PATH)
+        
+        def make_pos_switch(title, key, pos_data, name):
+            row = Adw.SwitchRow(title=title)
+            row.set_active(bool(pos_data.get(key, False)))
+            def on_changed(r, _p):
+                self._positions[name][key] = r.get_active()
+                auto_save_positions()
+            row.connect("notify::active", on_changed)
+            return row
+
+        def make_pos_spin(title, key, pos_data, name, min_v, max_v, step):
+            row = Adw.ActionRow(title=title)
+            val = float(pos_data.get(key, 0))
+            adj = Gtk.Adjustment(value=val, lower=min_v, upper=max_v, step_increment=step)
+            spin = Gtk.SpinButton(adjustment=adj, numeric=True)
+            spin.set_valign(Gtk.Align.CENTER)
+            def on_changed(s):
+                self._positions[name][key] = int(s.get_value())
+                auto_save_positions()
+            spin.connect("value-changed", on_changed)
+            row.add_suffix(spin)
+            return row
+
+        for name in sorted_names:
+            wall = wallpapers_map[name]
+            thumb_path = wall["thumb"]
+            
+            expander = Adw.ExpanderRow(title=name)
+            
+            prefix_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+            if thumb_path and Path(thumb_path).exists():
+                 img = Gtk.Image.new_from_file(thumb_path)
+                 img.set_pixel_size(48)
+                 prefix_box.append(img)
+            else:
+                 icon = Gtk.Image.new_from_icon_name("image-missing-symbolic")
+                 icon.set_pixel_size(48)
+                 prefix_box.append(icon)
+            expander.add_prefix(prefix_box)
+
+            if name not in self._positions:
+                self._positions[name] = deepcopy(self._positions.get("default", {}))
+            
+            pos_data = self._positions[name]
+            
+            expander.add_row(make_pos_switch("Enabled", "enabled", pos_data, name))
+            expander.add_row(make_pos_switch("Center on Screen", "centerOnScreen", pos_data, name))
+            expander.add_row(make_pos_switch("Center X", "centerX", pos_data, name))
+            expander.add_row(make_pos_switch("Center Y", "centerY", pos_data, name))
+            expander.add_row(make_pos_spin("X Position", "x", pos_data, name, -5000, 5000, 10))
+            expander.add_row(make_pos_spin("Y Position", "y", pos_data, name, -5000, 5000, 10))
+            expander.add_row(make_pos_spin("Day Size", "daySize", pos_data, name, 1, 500, 1))
+            expander.add_row(make_pos_spin("Date Size", "dateSize", pos_data, name, 1, 500, 1))
+            expander.add_row(make_pos_spin("Time Size", "timeSize", pos_data, name, 1, 500, 1))
+            
+            listbox.append(expander)
+
+        group.add(listbox)
+        page.add(group)
+        
+        # Search functionality
+        def on_search_changed(entry):
+            text = entry.get_text().lower()
+            child = listbox.get_first_child()
+            while child:
+                if isinstance(child, Adw.ExpanderRow):
+                    child.set_visible(text in child.get_title().lower())
+                child = child.get_next_sibling()
+        
+        search_entry.connect("search-changed", on_search_changed)
+        
+        return page
+
     def _page(self, groups: list[Adw.PreferencesGroup]) -> Adw.PreferencesPage:
         page = Adw.PreferencesPage()
         for g in groups:
@@ -2037,6 +2268,7 @@ class ConfigWindow(Adw.ApplicationWindow):
                 self._switch_row("Visualizer bottom",  ["components", "bar", "music", "visualizerBottom"]),
             ]),
             self._group("Wallpapers", [
+                self._combo_row("Backend", ["components", "wallpaperSelector", "backend"], ["quickshell", "rofi"]),
                 self._switch_row("Mute wallpaper audio", ["wallpaperMute"]),
                 self._combo_row("Display mode",
                                 ["components", "wallpaperSelector", "displayMode"],
@@ -2055,6 +2287,8 @@ class ConfigWindow(Adw.ApplicationWindow):
                                min_val=1, max_val=20),
                 self._entry_row("Steam Workshop",  ["paths", "steamWorkshop"]),
                 self._entry_row("Steam WE assets", ["paths", "steamWeAssets"]),
+                self._entry_row("Clock positions file", ["paths", "clockPositions"]),
+                self._action_row("Rescan wallpapers", "Scan for new images or videos", self._on_rescan_wallpapers, "Rescan"),
             ], description="Display-related settings: bar and wallpapers"),
         ])
 
@@ -2081,6 +2315,7 @@ class ConfigWindow(Adw.ApplicationWindow):
             ]),
             self._group("Wallpaper selector", [
                 self._switch_row("Enabled",        ["components", "wallpaperSelector", "enabled"]),
+                self._combo_row("Backend",         ["components", "wallpaperSelector", "backend"], ["quickshell", "rofi"]),
                 self._switch_row("Show color dots", ["components", "wallpaperSelector", "showColorDots"]),
             ]),
         ])

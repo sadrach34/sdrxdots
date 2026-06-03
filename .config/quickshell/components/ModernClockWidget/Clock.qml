@@ -68,11 +68,6 @@ PanelWindow {
             return p.endsWith(".png") || p.endsWith(".jpg") || p.endsWith(".jpeg") || p.endsWith(".webp")
         }
 
-        function refreshWallpaperState() {
-            loadPositionsProc.running = false
-            loadPositionsProc.running = true
-        }
-
         function resolveCurrentWallpaper() {
             var raw = stateFile.text().trim()
             if (raw) {
@@ -131,12 +126,10 @@ PanelWindow {
         function applyPositionFromPath(path) {
             var full = String(path || "")
             var file = basename(full)
-            var stem = stripExt(file)
-            // Prefer standardized stem keys so legacy filename.ext entries do not override custom positions.
-            var cfg = wallpaperPositions[stem] || wallpaperPositions[file] || wallpaperPositions[full] || wallpaperPositions.default || null
-            var matchedKey = wallpaperPositions[stem] ? stem
-                : (wallpaperPositions[file] ? file
-                : (wallpaperPositions[full] ? full : "default"))
+            // Use exact filename match (with extension) from positions.json
+            var cfg = wallpaperPositions[file] || wallpaperPositions.default || null
+            var matchedKey = wallpaperPositions[file] ? file : "default"
+            
             var defaultCfg = wallpaperPositions.default && typeof wallpaperPositions.default === "object"
                 ? wallpaperPositions.default
                 : ({})
@@ -171,20 +164,13 @@ PanelWindow {
 
             var x = Number(cfg.x)
             var y = Number(cfg.y)
-            // QoL: if x/y were edited and are non-zero, apply position even when enabled=false.
-            var enabled = cfg.enabled === true || (cfg.enabled !== true && (x !== 0 || y !== 0))
-            if (enabled && isFinite(x) && isFinite(y)) {
-                customPosX = x
-                customPosY = y
-                useCustomPosition = true
-            } else {
-                customPosX = 0
-                customPosY = 0
-                useCustomPosition = true
-            }
+            // Apply position if specified in cfg, otherwise default to 0.
+            customPosX = isFinite(x) ? x : 0
+            customPosY = isFinite(y) ? y : 0
+            useCustomPosition = true
+
             console.log("Clock position final:", matchedKey,
-                        "x=", customPosX, "y=", customPosY,
-                        "enabled=", enabled)
+                        "x=", customPosX, "y=", customPosY)
         }
 
         function updateContrastFromPath(path) {
@@ -210,30 +196,25 @@ PanelWindow {
             measureBrightnessProc.running = true
         }
 
-        Process {
-            id: loadPositionsProc
-            command: ["cat", clockPanel.positionsFilePath]
-
-            stdout: StdioCollector {
-                waitForEnd: true
-                onStreamFinished: {
-                    var raw = text.trim()
-                    if (!raw) {
-                        clockPanel.wallpaperPositions = ({})
-                        return
-                    }
-                    try {
-                        var parsed = JSON.parse(raw)
-                        clockPanel.wallpaperPositions = parsed && typeof parsed === "object" ? parsed : ({})
-                    } catch (e) {
-                        clockPanel.wallpaperPositions = ({})
-                    }
+        FileView {
+            id: positionsFile
+            path: clockPanel.positionsFilePath
+            watchChanges: true
+            onLoaded: {
+                var raw = positionsFile.text().trim()
+                if (!raw) {
+                    clockPanel.wallpaperPositions = ({})
+                    return
                 }
-            }
-
-            onExited: {
+                try {
+                    var parsed = JSON.parse(raw)
+                    clockPanel.wallpaperPositions = parsed && typeof parsed === "object" ? parsed : ({})
+                } catch (e) {
+                    clockPanel.wallpaperPositions = ({})
+                }
                 clockPanel.resolveCurrentWallpaper()
             }
+            onFileChanged: positionsFile.reload()
         }
 
         FileView {
@@ -309,14 +290,6 @@ PanelWindow {
                     clockPanel.clockTextColor = "#ffffff"
                 }
             }
-        }
-
-        Timer {
-            interval: 2500
-            running: true
-            repeat: true
-            triggeredOnStart: true
-            onTriggered: clockPanel.refreshWallpaperState()
         }
 
         // --- Fonts ---
