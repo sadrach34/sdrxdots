@@ -22,7 +22,7 @@ section() { echo -e "\n${BLUE}${BOLD}===  $1  ==================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$SCRIPT_DIR"
-DOTS_VERSION="1.6.1"
+DOTS_VERSION="1.6.2"
 BACKUP_ROOT="$HOME/.sdrxdots-backup"
 MARKER_FILE="$HOME/.local/share/sdrxdots-installed-v3"
 LEGACY_MARKER_FILE="$HOME/.local/share/sadrach-dotfiles-installed-v3"
