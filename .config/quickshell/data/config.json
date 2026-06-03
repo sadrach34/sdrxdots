@@ -40,7 +40,7 @@
   },
   "terminal": "kitty",
   "power": {
-    "deviceType": "laptop",
+    "deviceType": "desktop",
     "profile": "performance"
   },
   "optimization": {
@@ -91,12 +91,12 @@
     "lockscreen": false,
     "appLauncher": {
       "enabled": true,
-      "backend": "quickshell"
+      "backend": "rofi"
     },
     "wallpaperSelector": {
       "enabled": true,
       "showColorDots": false,
-      "backend": "rofi",
+      "backend": "quickshell",
       "autoChangeEnabled": false
     },
     "windowSwitcher": false,
@@ -137,9 +137,6 @@
   "appearance": {
     "colorMode": "dark"
   },
-  "secondary_monitor": "HDMI-A-1",
-  "monitors_list": [
-    "DP-1",
-    "HDMI-A-1"
-  ]
+  "secondary_monitor": "",
+  "monitors_list": []
 }

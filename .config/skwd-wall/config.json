@@ -90,7 +90,7 @@
       "activeCustomPreset": "C1_slices",
       "autoChangeMode": "random",
       "autoChangeIntervalMinutes": 15,
-      "autoChangeEnabled": true,
+      "autoChangeEnabled": false,
       "filterBarBgColor": "#000000"
     }
   },
@@ -107,5 +107,7 @@
     "videoTrashDays": 7,
     "autoDeleteImageTrash": false,
     "autoDeleteVideoTrash": false
-  }
+  },
+  "displayMode": "scale",
+  "steamWeAssets": ""
 }
