@@ -104,10 +104,9 @@ QtObject {
       var item = _wallpaperData[i]
       if (!item || !item.name) continue
       var file = String(item.name)
-      var stem = file.replace(/\.(jpg|jpeg|png|webp|gif|mp4|mkv|mov|webm|avi)$/i, "")
-      if (stem && !unique[stem]) {
-        unique[stem] = true
-        keys.push(stem)
+      if (file && !unique[file]) {
+        unique[file] = true
+        keys.push(file)
       }
     }
 

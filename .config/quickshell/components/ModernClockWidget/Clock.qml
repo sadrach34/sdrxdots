@@ -107,10 +107,6 @@ PanelWindow {
             return parts.length > 0 ? parts[parts.length - 1] : ""
         }
 
-        function stripExt(name) {
-            return String(name || "").replace(/\.(jpg|jpeg|png|webp|gif|mp4|mkv|mov|webm|avi)$/i, "")
-        }
-
         function positiveNumberOr(value, fallback) {
             var n = Number(value)
             return (isFinite(n) && n > 0) ? n : fallback
