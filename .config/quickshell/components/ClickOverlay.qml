@@ -18,13 +18,14 @@ PanelWindow {
     WlrLayershell.layer: WlrLayer.Top
 
     // Solo activo cuando algún panel está abierto
-    visible: root.dashboardVisible || root.topPanelVisible
+    visible: root.dashboardVisible || root.topPanelVisible || root.audioSelectorVisible
 
     MouseArea {
         anchors.fill: parent
         onClicked: {
             root.dashboardVisible = false
             root.topPanelVisible  = false
+            root.audioSelectorVisible = false
         }
     }
 }

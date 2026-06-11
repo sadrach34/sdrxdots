@@ -22,16 +22,17 @@ source $ZSH/oh-my-zsh.sh
 # Check archlinux plugin commands here
 # https://github.com/ohmyzsh/ohmyzsh/tree/master/plugins/archlinux
 
-# Display Pokemon-colorscripts
-# Project page: https://gitlab.com/phoneybadger/pokemon-colorscripts#on-other-distros-and-macos
-#pokemon-colorscripts --no-title -s -r #without fastfetch
-pokemon_args=(--no-title -r)
-pokemon_shiny_label=
-if (( RANDOM < 8 )); then
-  pokemon_args+=(-s)
-  pokemon_shiny_label=SHINY
+# Display Pokemon-colorscripts on startup unless explicitly disabled.
+# Start kitty with ZSH_STARTUP_FETCH=0 when you want a minimal shell.
+if [[ "${ZSH_STARTUP_FETCH:-1}" == 1 ]] && command -v pokemon-colorscripts >/dev/null 2>&1 && command -v fastfetch >/dev/null 2>&1; then
+  pokemon_args=(--no-title -r)
+  pokemon_shiny_label=
+  if (( RANDOM < 8 )); then
+    pokemon_args+=(-s)
+    pokemon_shiny_label=SHINY
+  fi
+  pokemon-colorscripts "${pokemon_args[@]}" | POKEMON_SHINY_LABEL=$pokemon_shiny_label fastfetch -c $HOME/.config/fastfetch/config-pokemon.jsonc --logo-type file-raw --logo-height 10 --logo-width 5 --logo -
 fi
-pokemon-colorscripts "${pokemon_args[@]}" | POKEMON_SHINY_LABEL=$pokemon_shiny_label fastfetch -c $HOME/.config/fastfetch/config-pokemon.jsonc --logo-type file-raw --logo-height 10 --logo-width 5 --logo -
 
 # fastfetch. Will be disabled if above colorscript was chosen to install
 #fastfetch -c $HOME/.config/fastfetch/config-compact.jsonc
@@ -161,7 +162,14 @@ alias windows='sudo grub-reboot "Windows Boot Manager (en /dev/sdc1)" && reboot'
 #
 
 # Set-up FZF key bindings (CTRL R for fuzzy history finder)
-source <(fzf --zsh)
+{
+  if [[ -r /usr/share/fzf/key-bindings.zsh ]]; then
+    source /usr/share/fzf/key-bindings.zsh
+  fi
+  if [[ -r /usr/share/fzf/completion.zsh ]]; then
+    source /usr/share/fzf/completion.zsh
+  fi
+} 2>/dev/null
 
 HISTFILE=~/.zsh_history
 HISTSIZE=10000

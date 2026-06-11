@@ -6,7 +6,7 @@ import QtQuick.Layouts
 import Quickshell.Io
 
 Item {
-    id: root
+    id: slidersRoot
 
     // ── Colores inline (mismos que sadrach34) ───────────────────────────────────
     readonly property color clrPane:      "#1a1a1a"
@@ -100,15 +100,15 @@ Item {
                 Layout.alignment: Qt.AlignHCenter
                 width: 48; height: 48
                 radius: 20
-                color: brIconArea.containsMouse ? "#252535" : root.clrPane
-                border.width: 1; border.color: root.clrBorder
+                color: brIconArea.containsMouse ? "#252535" : slidersRoot.clrPane
+                border.width: 1; border.color: slidersRoot.clrBorder
                 Behavior on color { ColorAnimation { duration: 150 } }
 
                 Text {
                     anchors.centerIn: parent
                     text: brSlider.displayValue > 30 ? "\ue472" : "\ue474"  // sun / sunDim
-                    font.family: root.iconFnt; font.pixelSize: 18
-                    color: root.clrText
+                    font.family: slidersRoot.iconFnt; font.pixelSize: 18
+                    color: slidersRoot.clrText
                 }
                 MouseArea {
                     id: brIconArea
@@ -118,7 +118,7 @@ Item {
                     onWheel: wheel => {
                         var v = Math.max(1, Math.min(100, brSlider.displayValue + (wheel.angleDelta.y > 0 ? 5 : -5)))
                         brSlider.displayValue = v
-                        root.restartProc(brSetProc, ["bash","-c","brightnessctl set " + v + "%"])
+                        slidersRoot.restartProc(brSetProc, ["bash","-c","brightnessctl set " + v + "%"])
                     }
                 }
             }
@@ -133,14 +133,14 @@ Item {
                     id: brSlider
                     anchors.fill: parent
                     onUserMoved: val => {
-                        root.restartProc(brSetProc, ["bash","-c","brightnessctl set " + val + "%"])
+                        slidersRoot.restartProc(brSetProc, ["bash","-c","brightnessctl set " + val + "%"])
                     }
                 }
             }
         }
 
         // ── Separador ────────────────────────────────────────────────────────
-        Rectangle { Layout.fillWidth: true; height: 1; color: root.clrBorder }
+        Rectangle { Layout.fillWidth: true; height: 1; color: slidersRoot.clrBorder }
 
         // ── VOLUMEN (CircularControl) ─────────────────────────────────────────
         CircCtrl {
@@ -148,18 +148,21 @@ Item {
             Layout.alignment: Qt.AlignHCenter
             width: 48; height: 48
             iconText: {
-                if (root.volMuted || volSlider.value < 0.01) return "\ue45a"   // speakerSlash
+                if (slidersRoot.volMuted || volSlider.value < 0.01) return "\ue45a"   // speakerSlash
                 if (volSlider.value < 0.19) return "\ue44e"                     // speakerNone
                 if (volSlider.value < 0.49) return "\ue44c"                     // speakerLow
                 return "\ue44a"                                                  // speakerHigh
             }
-            accentColor: root.volMuted ? root.clrOutline : root.clrPrimary
+            accentColor: slidersRoot.volMuted ? slidersRoot.clrOutline : slidersRoot.clrPrimary
             onControlChanged: v => {
-                root.restartProc(volSetProc, ["bash","-c","wpctl set-volume @DEFAULT_AUDIO_SINK@ " + v.toFixed(2)])
+                slidersRoot.restartProc(volSetProc, ["bash","-c","wpctl set-volume @DEFAULT_AUDIO_SINK@ " + v.toFixed(2)])
             }
             onToggleRequested: {
                 volMuteProc.running = false
                 volMuteProc.running = true
+            }
+            onRightClicked: {
+                root.toggleAudioSelector()
             }
         }
 
@@ -168,10 +171,10 @@ Item {
             id: micSlider
             Layout.alignment: Qt.AlignHCenter
             width: 48; height: 48
-            iconText: root.micMuted ? "\ue30e" : "\ue310"   // micSlash / mic
-            accentColor: root.micMuted ? root.clrOutline : root.clrPrimary
+            iconText: slidersRoot.micMuted ? "\ue30e" : "\ue310"   // micSlash / mic
+            accentColor: slidersRoot.micMuted ? slidersRoot.clrOutline : slidersRoot.clrPrimary
             onControlChanged: v => {
-                root.restartProc(micSetProc, ["bash","-c","wpctl set-volume @DEFAULT_AUDIO_SOURCE@ " + v.toFixed(2)])
+                slidersRoot.restartProc(micSetProc, ["bash","-c","wpctl set-volume @DEFAULT_AUDIO_SOURCE@ " + v.toFixed(2)])
             }
             onToggleRequested: {
                 micMuteProc.running = false
@@ -199,8 +202,8 @@ Item {
         Rectangle {
             anchors.fill: parent
             radius: 20
-            color: root.clrPane
-            border.width: 1; border.color: root.clrBorder
+            color: slidersRoot.clrPane
+            border.width: 1; border.color: slidersRoot.clrBorder
         }
 
         // ── Track container (4px centrado) ─────────────────────────────────
@@ -217,7 +220,7 @@ Item {
                 anchors.bottomMargin: 4
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: 4; radius: 2
-                color: root.clrTrack
+                color: slidersRoot.clrTrack
             }
             // Track de progreso (debajo del handle = zona llenada)
             Rectangle {
@@ -226,7 +229,7 @@ Item {
                 anchors.bottom: parent.bottom
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: 4; radius: 2
-                color: root.clrPrimary
+                color: slidersRoot.clrPrimary
                 Behavior on height { NumberAnimation { duration: 80 } }
             }
 
@@ -290,9 +293,10 @@ Item {
         id: cc
         property real   value:       0.5
         property string iconText:    ""
-        property color  accentColor: root.clrPrimary
+        property color  accentColor: slidersRoot.clrPrimary
         signal controlChanged(real v)
         signal toggleRequested
+        signal rightClicked
 
         // Geometría del arco (idéntica a sadrach34 CircularControl)
         readonly property real gapAngle:    45
@@ -306,8 +310,8 @@ Item {
         Rectangle {
             anchors.fill: parent
             radius: 20
-            color:  ccArea.containsMouse ? "#252535" : root.clrPane
-            border.width: 1; border.color: root.clrBorder
+            color:  ccArea.containsMouse ? "#252535" : slidersRoot.clrPane
+            border.width: 1; border.color: slidersRoot.clrBorder
             Behavior on color { ColorAnimation { duration: 150 } }
         }
 
@@ -357,7 +361,7 @@ Item {
                 var totalRad = (360 - 2 * cc.gapAngle) * Math.PI / 180
                 var remEnd   = baseStart + totalRad
                 if (remStart < remEnd) {
-                    ctx.strokeStyle = root.clrOutline
+                    ctx.strokeStyle = slidersRoot.clrOutline
                     ctx.lineWidth = lw
                     ctx.beginPath()
                     ctx.arc(cx, cy, r, remStart, remEnd, false)
@@ -378,9 +382,9 @@ Item {
         Text {
             anchors.centerIn: parent
             text: cc.iconText
-            font.family: root.iconFnt
+            font.family: slidersRoot.iconFnt
             font.pixelSize: 18
-            color: root.clrText
+            color: slidersRoot.clrText
         }
 
         // Interacción
@@ -388,6 +392,7 @@ Item {
             id: ccArea
             anchors.fill: parent
             hoverEnabled: true
+            acceptedButtons: Qt.LeftButton | Qt.RightButton
             cursorShape: Qt.PointingHandCursor
             preventStealing: true
 
@@ -396,12 +401,14 @@ Item {
             property bool wasDragging:   false
 
             onPressed: mouse => {
-                dragStartY   = mouse.y
-                dragStartVal = cc.value
-                wasDragging  = false
+                if (mouse.button === Qt.LeftButton) {
+                    dragStartY   = mouse.y
+                    dragStartVal = cc.value
+                    wasDragging  = false
+                }
             }
             onPositionChanged: mouse => {
-                if (!pressed) return
+                if (!pressed || mouse.button !== Qt.LeftButton) return
                 var delta = (dragStartY - mouse.y) / 100.0
                 if (Math.abs(dragStartY - mouse.y) > 3) {
                     wasDragging = true
@@ -410,8 +417,14 @@ Item {
                     cc.controlChanged(v)
                 }
             }
-            onClicked: {
-                if (!wasDragging) cc.toggleRequested()
+            onClicked: mouse => {
+                if (!wasDragging) {
+                    if (mouse.button === Qt.RightButton) {
+                        cc.rightClicked()
+                    } else {
+                        cc.toggleRequested()
+                    }
+                }
             }
             onWheel: w => {
                 var v = Math.round(Math.min(1, Math.max(0, cc.value + (w.angleDelta.y > 0 ? 0.05 : -0.05))) * 100) / 100

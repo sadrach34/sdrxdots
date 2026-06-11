@@ -27,6 +27,7 @@ ShellRoot {
     property string appLauncherMonitorName: ""
     property string windowSwitcherMonitorName: ""
     property string wallpaperPickerMonitorName: ""
+    property string audioSelectorMonitorName: ""
     readonly property string clickOverlayMonitorName: topPanelVisible ? topPanelMonitorName : dashboardMonitorName
 
     SkwdTheme.Colors {
@@ -46,6 +47,7 @@ ShellRoot {
     property bool appLauncherVisible:     false  // lanzador de apps con búsqueda y freq
     property bool windowSwitcherVisible:  false  // ALT+TAB estilo paralelo
     property bool wallpaperPickerVisible: false  // selector visual de fondos de pantalla
+    property bool audioSelectorVisible:   false  // selector de dispositivo de audio
     property bool concentrationAlertVisible: false // alerta de tiempo terminado
     property bool focusWarningVisible: false // aviso de app bloqueada
     property bool concentrationMuted: false // silencio para la alarma de concentración
@@ -76,6 +78,10 @@ ShellRoot {
         if (!wallpaperPickerVisible) wallpaperPickerMonitorName = _focusedMonitorName()
         wallpaperPickerVisible = !wallpaperPickerVisible
     }
+    function toggleAudioSelector() {
+        if (!audioSelectorVisible) audioSelectorMonitorName = _focusedMonitorName()
+        audioSelectorVisible = !audioSelectorVisible
+    }
     function openWallpaperPicker()   { wallpaperPickerMonitorName = _focusedMonitorName(); wallpaperPickerVisible = true }
     function closeWallpaperPicker()  { wallpaperPickerVisible = false }
 
@@ -86,6 +92,12 @@ ShellRoot {
 
     TopPanel {}            // Panel que baja desde arriba: editor de notas markdown
                            //   + mezclador de volumen por app (faders verticales)
+
+    AudioDeviceSelector {
+        showing: root.audioSelectorVisible
+        mainMonitor: root.audioSelectorMonitorName
+        colors: skwdColors
+    }
 
     NotificationToast {}   // Toast flotante esquina superior derecha: muestra cada
                            //   notificación entrante; click abre swappy si es captura
@@ -143,6 +155,11 @@ ShellRoot {
         function toggle() { root.toggleWallpaperPicker() }
         function open() { root.openWallpaperPicker() }
         function close() { root.closeWallpaperPicker() }
+    }
+
+    IpcHandler {
+        target: "audioselector"
+        function toggle() { root.toggleAudioSelector() }
     }
 
     IpcHandler {

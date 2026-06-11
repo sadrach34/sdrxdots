@@ -901,12 +901,14 @@ Item {
     }
   }
 
+  required property string targetOutputName
+
   Connections {
     target: browser.whService
     function onDownloadFinished(wallhavenId, localPath) {
       if (wallhavenId === browser._pendingApplyId && localPath !== "") {
         browser._pendingApplyId = ""
-        WallpaperApplyService.applyStatic(localPath)
+        WallpaperApplyService.applyStatic(localPath, browser.targetOutputName)
       }
     }
   }
@@ -924,7 +926,7 @@ Item {
     }
     onExited: {
       if (browser._applyLookupResult !== "")
-        WallpaperApplyService.applyStatic(browser._applyLookupResult)
+        WallpaperApplyService.applyStatic(browser._applyLookupResult, browser.targetOutputName)
       browser._applyLookupResult = ""
     }
   }

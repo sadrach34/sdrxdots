@@ -442,6 +442,7 @@ Scope {
       z: 6
       colors: wallpaperSelector.colors
       whService: whService
+      targetOutputName: wallpaperSelector.effectiveMonitor
       browserVisible: wallpaperSelector.wallhavenBrowserOpen
       onEscapePressed: { wallpaperSelector.wallhavenBrowserOpen = false; wallpaperSelector._focusActiveList() }
     }
