@@ -152,15 +152,28 @@ build_we_screen_args() {
   if ! command -v jq >/dev/null 2>&1; then
     return 0
   fi
+
+  local target="${WALL_OUTPUT:-}"
+  if [[ -n "$target" && "$target" != "*" ]]; then
+    printf -- ' --screen-root %q --scaling fill --clamp border' "$target"
+    return 0
+  fi
+
   hyprctl -j monitors 2>/dev/null | jq -r '.[].name // empty' 2>/dev/null | while IFS= read -r mon; do
     [[ -n "$mon" ]] && printf -- ' --screen-root %q --scaling fill --clamp border' "$mon"
   done
 }
 
 stop_we_engine() {
+  local target="${WALL_OUTPUT:-}"
   local pids pid
 
-  pids="$(pgrep -f '(^|/)linux-wallpaperengine([[:space:]]|$)' 2>/dev/null || true)"
+  if [[ -n "$target" && "$target" != "*" ]]; then
+    pids="$(pgrep -f "linux-wallpaperengine.*--screen-root ${target}([[:space:]]|$)" 2>/dev/null || true)"
+  else
+    pids="$(pgrep -f '(^|/)linux-wallpaperengine([[:space:]]|$)' 2>/dev/null || true)"
+  fi
+
   if [[ -n "$pids" ]]; then
     for pid in $pids; do
       kill -TERM "$pid" 2>/dev/null || true
@@ -168,21 +181,25 @@ stop_we_engine() {
   fi
 
   for _ in {1..40}; do
-    pgrep -f '(^|/)linux-wallpaperengine([[:space:]]|$)' >/dev/null 2>&1 || break
+    if [[ -n "$target" && "$target" != "*" ]]; then
+      pgrep -f "linux-wallpaperengine.*--screen-root ${target}([[:space:]]|$)" >/dev/null 2>&1 || break
+    else
+      pgrep -f '(^|/)linux-wallpaperengine([[:space:]]|$)' >/dev/null 2>&1 || break
+    fi
     sleep 0.05
   done
 
-  pids="$(pgrep -f '(^|/)linux-wallpaperengine([[:space:]]|$)' 2>/dev/null || true)"
+  if [[ -n "$target" && "$target" != "*" ]]; then
+    pids="$(pgrep -f "linux-wallpaperengine.*--screen-root ${target}([[:space:]]|$)" 2>/dev/null || true)"
+  else
+    pids="$(pgrep -f '(^|/)linux-wallpaperengine([[:space:]]|$)' 2>/dev/null || true)"
+  fi
+
   if [[ -n "$pids" ]]; then
     for pid in $pids; do
       kill -KILL "$pid" 2>/dev/null || true
     done
   fi
-
-  for _ in {1..20}; do
-    pgrep -f '(^|/)linux-wallpaperengine([[:space:]]|$)' >/dev/null 2>&1 || break
-    sleep 0.05
-  done
 }
 
 apply_we() {
@@ -197,10 +214,14 @@ apply_we() {
 
   ensure_state_dirs
   stop_we_engine
-  pkill mpvpaper 2>/dev/null
-  pkill awww 2>/dev/null
-  pkill awww-daemon 2>/dev/null
-  pkill hyprpaper 2>/dev/null
+  if [[ -n "$WALL_OUTPUT" ]]; then
+    pkill -f "mpvpaper[[:space:]]+${WALL_OUTPUT}([[:space:]]|$)" 2>/dev/null || true
+  else
+    pkill mpvpaper 2>/dev/null
+    pkill awww 2>/dev/null
+    pkill awww-daemon 2>/dev/null
+    pkill hyprpaper 2>/dev/null
+  fi
 
   local screen_args assets_args
   screen_args="$(build_we_screen_args)"
@@ -315,6 +336,7 @@ kill_for_video() {
   fi
   if [[ -n "$WALL_OUTPUT" ]]; then
     pkill -f "mpvpaper[[:space:]]+${WALL_OUTPUT}([[:space:]]|$)" 2>/dev/null || true
+    pkill -f "linux-wallpaperengine.*--screen-root ${WALL_OUTPUT}([[:space:]]|$)" 2>/dev/null || true
   else
     [[ -n "$WALL_CMD" ]] && "$WALL_CMD" kill 2>/dev/null
     stop_we_engine
@@ -325,11 +347,13 @@ kill_for_video() {
 }
 
 kill_for_image() {
-  stop_we_engine
   if [[ -n "$WALL_OUTPUT" ]]; then
     pkill -f "mpvpaper[[:space:]]+${WALL_OUTPUT}([[:space:]]|$)" 2>/dev/null || true
+    pkill -f "linux-wallpaperengine.*--screen-root ${WALL_OUTPUT}([[:space:]]|$)" 2>/dev/null || true
+  else
+    stop_we_engine
+    stop_video_wallpaper
   fi
-  stop_video_wallpaper
   pkill swaybg 2>/dev/null
   pkill hyprpaper 2>/dev/null
 }

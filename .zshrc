@@ -146,12 +146,9 @@ gitacp() {
 #alias mysql
 alias mc='mycli -u root -h 127.0.0.1'
 
-# Función para modelo IA GLaDOS
+# GLaDOS — Asistente de IA self-hosted
 glados() {
-    local original_dir="$PWD"
-    cd ~/GlaDOS && source venv/bin/activate && python glados.py
-    deactivate 2>/dev/null
-    cd "$original_dir"
+    ~/.local/bin/glados "$@"
 }
 alias gl='glados'
 

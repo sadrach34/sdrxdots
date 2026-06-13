@@ -4,6 +4,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Gtk, Adw, GLib, Gio
 
 import json
+import os
 import subprocess
 import time
 from pathlib import Path
@@ -28,6 +29,7 @@ WAYBAR_STYLE_LINK    = HOME / ".config/waybar/style.css"
 WAYBAR_STARTUP_LOG   = HOME / ".cache/quickshell/waybar-startup.log"
 SKWD_WALL_CONFIG_PATH = HOME / ".config/skwd-wall/config.json"
 POSITIONS_JSON_PATH  = HOME / ".config/quickshell/components/ModernClockWidget/positions.json"
+SKWD_WALL_CACHE_DIR = Path(os.environ.get("SKWD_WALL_CACHE", HOME / ".cache/skwd-wall"))
 
 KNOWN_TERMINALS = [
     "kitty",

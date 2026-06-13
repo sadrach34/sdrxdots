@@ -5,6 +5,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Gtk, Adw, GLib, Gio, Pango
 
 import json
+import os
 import subprocess
 import time
 import shutil
@@ -32,6 +33,7 @@ WAYBAR_STYLE_LINK    = HOME / ".config/waybar/style.css"
 WAYBAR_STARTUP_LOG   = HOME / ".cache/quickshell/waybar-startup.log"
 SKWD_WALL_CONFIG_PATH = HOME / ".config/skwd-wall/config.json"
 POSITIONS_JSON_PATH  = HOME / ".config/quickshell/components/ModernClockWidget/positions.json"
+SKWD_WALL_CACHE_DIR = Path(os.environ.get("SKWD_WALL_CACHE", HOME / ".cache/skwd-wall"))
 
 KNOWN_TERMINALS = [
     "kitty",
@@ -1884,42 +1886,23 @@ class ConfigWindow(Adw.ApplicationWindow):
 
     def _build_clock_page(self) -> Adw.PreferencesPage:
         page = Adw.PreferencesPage()
-        
-        # Main group for individual wallpaper clock settings
-        group = Adw.PreferencesGroup(
-            title="Wallpaper Clock Positions",
-            description="Configure the clock position for each wallpaper",
+
+        # ── Active Wallpapers ──────────────────────────────────────────────────
+        active_group = Adw.PreferencesGroup(
+            title="Active Wallpapers",
+            description="Quickly configure the clock for currently active wallpapers"
         )
         
-        # Search entry to filter wallpapers
-        search_row = Adw.ActionRow()
-        search_entry = Gtk.SearchEntry(placeholder_text="Search wallpapers…", hexpand=True)
-        search_row.set_child(search_entry)
-        group.add(search_row)
-        
+        # Load wallpapers from DB for thumbnails
         wallpapers_raw = self._get_wallpapers_from_db()
-        # Use full filenames as keys
         wallpapers_map = {w["name"]: w for w in wallpapers_raw}
-        
-        # Add keys from positions.json that aren't in DB
-        for name in self._positions:
-            if name != "default" and name not in wallpapers_map:
-                wallpapers_map[name] = {"name": name, "thumb": None}
-        
-        sorted_names = sorted(wallpapers_map.keys(), key=lambda x: x.lower())
-        
-        listbox = Gtk.ListBox()
-        listbox.set_selection_mode(Gtk.SelectionMode.NONE)
-        listbox.add_css_class("boxed-list")
-        
+
         def auto_save_positions():
             save_json(POSITIONS_JSON_PATH, self._positions)
             self._saved_positions = deepcopy(self._positions)
-            # Prevent the file watcher from triggering a full UI reload
             self._suppress_external_reload_until = time.time() + 1.2
-            # Update the snapshot to match the newly saved file
             self._file_mtimes["positions.json"] = self._mtime(POSITIONS_JSON_PATH)
-        
+
         def make_pos_switch(title, key, pos_data, name):
             row = Adw.SwitchRow(title=title)
             row.set_active(bool(pos_data.get(key, False)))
@@ -1942,7 +1925,81 @@ class ConfigWindow(Adw.ApplicationWindow):
             row.add_suffix(spin)
             return row
 
-        for name in sorted_names:
+        # Find active wallpaper files
+        active_found = False
+        if SKWD_WALL_CACHE_DIR.exists():
+            for state_file in SKWD_WALL_CACHE_DIR.glob("last-wallpaper*.json"):
+                try:
+                    data = json.loads(state_file.read_text())
+                    path = data.get("path")
+                    if not path: continue
+                    
+                    name = Path(path).name
+                    monitor = ""
+                    if state_file.stem.startswith("last-wallpaper-"):
+                        monitor = state_file.stem[len("last-wallpaper-"):].replace("_", " ")
+
+                    # Create expander for active wallpaper
+                    wall_title = f"{name} ({monitor})" if monitor else name
+                    expander = Adw.ExpanderRow(title=wall_title)
+                    
+                    if name not in self._positions:
+                        self._positions[name] = deepcopy(self._positions.get("default", {}))
+
+                    pos_data = self._positions[name]
+                    
+                    # Add controls
+                    expander.add_row(make_pos_switch("Enabled", "enabled", pos_data, name))
+                    expander.add_row(make_pos_switch("Center on Screen", "centerOnScreen", pos_data, name))
+                    expander.add_row(make_pos_switch("Center X", "centerX", pos_data, name))
+                    expander.add_row(make_pos_switch("Center Y", "centerY", pos_data, name))
+                    expander.add_row(make_pos_spin("X Position", "x", pos_data, name, -5000, 5000, 10))
+                    expander.add_row(make_pos_spin("Y Position", "y", pos_data, name, -5000, 5000, 10))
+                    expander.add_row(make_pos_spin("Day Size", "daySize", pos_data, name, 1, 500, 1))
+                    expander.add_row(make_pos_spin("Date Size", "dateSize", pos_data, name, 1, 500, 1))
+                    expander.add_row(make_pos_spin("Time Size", "timeSize", pos_data, name, 1, 500, 1))
+                    
+                    # Thumbnail if available
+                    wall_info = wallpapers_map.get(name)
+                    if wall_info and wall_info.get("thumb"):
+                        img = Gtk.Image.new_from_file(wall_info["thumb"])
+                        img.set_pixel_size(64)
+                        img.set_margin_start(12)
+                        expander.add_prefix(img)
+
+                    active_group.add(expander)
+                    active_found = True
+                except Exception as e:
+                    print(f"Error loading active wallpaper state {state_file}: {e}")
+
+        if active_found:
+            page.add(active_group)
+
+        # ── All Wallpapers ─────────────────────────────────────────────────────
+        # Main group for individual wallpaper clock settings
+        group = Adw.PreferencesGroup(
+            title="Wallpaper Clock Positions",
+            description="Configure the clock position for each wallpaper",
+        )
+        
+        # Search entry to filter wallpapers
+        search_row = Adw.ActionRow()
+        search_entry = Gtk.SearchEntry(placeholder_text="Search wallpapers…", hexpand=True)
+        search_row.set_child(search_entry)
+        group.add(search_row)
+        
+        # Add keys from positions.json that aren't in DB
+        for name in self._positions:
+            if name != "default" and name not in wallpapers_map:
+                wallpapers_map[name] = {"name": name, "thumb": None}
+        
+        sorted_names = sorted(wallpapers_map.keys(), key=lambda x: x.lower())
+        
+        listbox = Gtk.ListBox()
+        listbox.set_selection_mode(Gtk.SelectionMode.NONE)
+        listbox.add_css_class("boxed-list")
+
+        def build_wallpaper_row(name):
             wall = wallpapers_map[name]
             thumb_path = wall["thumb"]
             
@@ -1973,20 +2030,59 @@ class ConfigWindow(Adw.ApplicationWindow):
             expander.add_row(make_pos_spin("Day Size", "daySize", pos_data, name, 1, 500, 1))
             expander.add_row(make_pos_spin("Date Size", "dateSize", pos_data, name, 1, 500, 1))
             expander.add_row(make_pos_spin("Time Size", "timeSize", pos_data, name, 1, 500, 1))
+            return expander
+
+        # Optimization: Only load first N wallpapers initially
+        INITIAL_LIMIT = 25
+        displayed_count = 0
+        
+        def populate_list(names_to_show):
+            # Clear previous rows
+            while child := listbox.get_first_child():
+                listbox.remove(child)
             
-            listbox.append(expander)
+            for name in names_to_show:
+                listbox.append(build_wallpaper_row(name))
+
+        # Initial population
+        populate_list(sorted_names[:INITIAL_LIMIT])
+
+        # Load more button
+        load_more_row = Adw.ActionRow(title="Show all wallpapers…")
+        load_more_row.set_activatable(True)
+        load_more_row.add_suffix(Gtk.Image.new_from_icon_name("go-next-symbolic"))
+        
+        def on_load_more_clicked(row):
+            listbox.remove(row)
+            # Rebuild full list (can be slow, but it's user-initiated)
+            for name in sorted_names[INITIAL_LIMIT:]:
+                listbox.append(build_wallpaper_row(name))
+        
+        load_more_row.connect("activated", on_load_more_clicked)
+        if len(sorted_names) > INITIAL_LIMIT:
+            listbox.append(load_more_row)
 
         group.add(listbox)
         page.add(group)
         
-        # Search functionality
+        # Search functionality - rebuilds list based on query
         def on_search_changed(entry):
-            text = entry.get_text().lower()
-            child = listbox.get_first_child()
-            while child:
-                if isinstance(child, Adw.ExpanderRow):
-                    child.set_visible(text in child.get_title().lower())
-                child = child.get_next_sibling()
+            query = entry.get_text().lower()
+            if not query:
+                # Reset to initial limited list
+                populate_list(sorted_names[:INITIAL_LIMIT])
+                if len(sorted_names) > INITIAL_LIMIT:
+                    listbox.append(load_more_row)
+                return
+            
+            # Find matches in full list
+            matches = [n for n in sorted_names if query in n.lower()]
+            # Show up to 50 matches for performance
+            populate_list(matches[:50])
+            
+            if len(matches) > 50:
+                info_row = Adw.ActionRow(title=f"Showing 50 of {len(matches)} matches…")
+                listbox.append(info_row)
         
         search_entry.connect("search-changed", on_search_changed)
         
