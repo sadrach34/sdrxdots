@@ -246,3 +246,8 @@ for mon in "${MONITORS[@]}"; do
 
 	run_apply_for_monitor "$mon" "$TYPE" "$RANDOM_ITEM"
 done
+
+# Sync wallpaper state with Quickshell
+if [ -f "$HOME/.config/quickshell/scripts/python/wallpaper_sync.py" ]; then
+    python3 "$HOME/.config/quickshell/scripts/python/wallpaper_sync.py" > /dev/null 2>&1 &
+fi

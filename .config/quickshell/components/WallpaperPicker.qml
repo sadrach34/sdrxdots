@@ -49,6 +49,24 @@ Scope {
     }
   }
 
+  Process {
+    id: syncProc
+    command: ["python3", Config.homeDir + "/.config/quickshell/scripts/python/wallpaper_sync.py"]
+  }
+
+  onMainMonitorChanged: syncProc.running = true
+
+  Connections {
+    target: root
+    function onWallpaperPickerVisibleChanged() {
+      if (root.wallpaperPickerVisible) {
+        syncProc.running = true
+      } else if (selectorLoader.item) {
+        selectorLoader.item.showing = false
+      }
+    }
+  }
+
   Colors {
     id: skwdColors
   }

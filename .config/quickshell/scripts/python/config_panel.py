@@ -862,6 +862,9 @@ class ConfigWindow(Adw.ApplicationWindow):
         self.set_icon_name("preferences-system-symbolic")
         self.add_css_class("config-panel")
 
+        # Sync wallpaper state with reality on open
+        subprocess.run([sys.executable, str(HOME / ".config/quickshell/scripts/python/wallpaper_sync.py")], check=False)
+
         self._config = load_json(CONFIG_PATH)
         if get_nested(self._config, ["hypridle", "enabled"], None) is None:
             set_nested(self._config, ["hypridle", "enabled"], True)
