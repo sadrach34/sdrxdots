@@ -68,12 +68,28 @@ Rectangle {
         for (var i = 0; i < playersList.length; i++) {
             if (playersList[i].playbackState === MprisPlaybackState.Playing) return playersList[i]
         }
-        return playersList[Math.min(activePlayerIndex, playersList.length - 1)]
+        var targetIdx = Math.min(activePlayerIndex, playersList.length - 1)
+        if (targetIdx < 0) return null
+        return playersList[targetIdx]
+    }
+
+    onActivePlayerChanged: {
+        if (activePlayer) {
+            player.position = activePlayer.position
+            player.length = activePlayer.length
+            player.syncSeekBar()
+        }
     }
 
     readonly property bool isPlaying:       activePlayer?.playbackState === MprisPlaybackState.Playing
+    readonly property string artworkSource: {
+        var url = activePlayer?.trackArtUrl ?? ""
+        if (url === "") return ""
+        if (url.indexOf("://") === -1 && url.startsWith("/")) return "file://" + url
+        return url
+    }
     readonly property bool hasActivePlayer: activePlayer !== null
-    readonly property bool hasArtwork:      (activePlayer?.trackArtUrl ?? "") !== ""
+    readonly property bool hasArtwork:      artworkSource !== ""
 
     property real position: activePlayer?.position ?? 0.0
     property real length:   activePlayer?.length   ?? 1.0
@@ -108,8 +124,10 @@ Rectangle {
     }
 
     function syncSeekBar() {
-        if (!realSeekBar.isDragging && !player.isSeeking)
-            realSeekBar.value = (hasActivePlayer && length > 0) ? position / length : 0
+        if (!realSeekBar.isDragging && !player.isSeeking) {
+            var v = (hasActivePlayer && length > 0) ? position / length : 0
+            realSeekBar.value = Math.max(0, Math.min(1, v))
+        }
     }
 
     // Igual que getPlayerIcon() en sadrach34 (usa HTML font tag para app-icons)
@@ -137,9 +155,23 @@ Rectangle {
         target: player.activePlayer
         ignoreUnknownSignals: true
         function onPositionChanged() { player.syncSeekBar() }
+        function onTrackArtUrlChanged() { 
+            if (player.isPlaying && !rotateAnim.running) {
+                rotateAnim.restart()
+            }
+        }
+        function onPlaybackStateChanged() {
+            // isPlaying is a binding, so this will trigger onIsPlayingChanged
+        }
     }
 
-    Component.onCompleted: { refreshPlayers(); syncSeekBar() }
+    Component.onCompleted: { 
+        refreshPlayers(); 
+        syncSeekBar();
+        if (player.isPlaying) {
+            rotateAnim.restart()
+        }
+    }
 
     // ══════════════════════════════════════════════════════════════════════
     // Fondo: blur del arte + full-art con máscara invertida (borde de arte)
@@ -149,7 +181,7 @@ Rectangle {
     Image {
         id: backgroundArtBlurred
         anchors.fill: parent
-        source: player.hasArtwork ? player.activePlayer.trackArtUrl : ""
+        source: player.artworkSource
         sourceSize: Qt.size(64, 64)
         fillMode: Image.PreserveAspectCrop
         visible: false; asynchronous: true; mipmap: true
@@ -165,7 +197,7 @@ Rectangle {
     Image {
         id: backgroundArtFull
         anchors.fill: parent
-        source: player.hasArtwork ? player.activePlayer.trackArtUrl : ""
+        source: player.artworkSource
         fillMode: Image.PreserveAspectCrop
         visible: false; asynchronous: true; mipmap: true
     }
@@ -222,7 +254,7 @@ Rectangle {
                 readonly property real ringPadding:   12
                 readonly property real handleSpacing: 20
                 readonly property real ringRadius:    (Math.min(width, height) / 2) - ringPadding
-                readonly property real effectiveValue: isDragging ? dragValue : value
+                readonly property real effectiveValue: Math.max(0.0, Math.min(1.0, isDragging ? dragValue : value))
                 readonly property real gapAngleDeg:   (handleSpacing / 2) / Math.max(1, ringRadius) * 180 / Math.PI
                 readonly property real currentAngleRad: (startAngleDeg + spanAngleDeg * effectiveValue) * Math.PI / 180
                 property real animHandleOffset: isDragging ? 9 : 6
@@ -310,28 +342,52 @@ Rectangle {
                 }
             }
 
-            // Portada giratoria (ClippingRectangle + rotación + inercia spring)
+            // Portada giratoria (Rectangle con layer para clip circular + rotación + inercia spring)
             Item {
                 id: coverDiscContainer
                 anchors.centerIn: parent
                 width:  parent.width  - 52
                 height: parent.height - 52
-                layer.enabled: true; layer.smooth: true
 
-                ClippingRectangle {
+                Rectangle {
                     anchors.fill: parent
                     radius: width / 2
                     color: player.clrSurface
+                    clip: true
+                    
+                    // Capa de clipping circular robusta
+                    layer.enabled: true
+                    layer.effect: MultiEffect {
+                        maskEnabled: true
+                        maskSource: Rectangle {
+                            width: coverDiscContainer.width; height: coverDiscContainer.height
+                            radius: width / 2; color: "black"
+                        }
+                    }
 
                     Image {
+                        id: coverArtImage
                         anchors.fill: parent; mipmap: true; asynchronous: true
-                        source: player.hasArtwork ? player.activePlayer.trackArtUrl : ""
+                        source: player.artworkSource
                         sourceSize: Qt.size(256, 256); fillMode: Image.PreserveAspectCrop
+                        onStatusChanged: {
+                            if (status === Image.Error) {
+                                console.log("Failed to load artwork from:", source)
+                            }
+                        }
                     }
-                    // Placeholder sin arte
+                    // Placeholder sin arte (solo se muestra si no hay arte o si hubo un error)
                     Rectangle {
                         anchors.fill: parent; color: player.clrSurface
-                        visible: !player.hasArtwork
+                        visible: !player.hasArtwork || coverArtImage.status === Image.Error
+                        
+                        Text {
+                            anchors.centerIn: parent
+                            text: "\uecac"
+                            font.family: player.iconFnt
+                            font.pixelSize: 48
+                            color: player.clrOutline
+                        }
                     }
                 }
 

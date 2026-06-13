@@ -304,7 +304,10 @@ Item {
         readonly property real arcRadius:   16
         readonly property real handleSpace: 6
         readonly property real handleSize:  8
-        readonly property real arcAngle:    value * (360 - 2 * gapAngle)  // 0..270
+        
+        // LIMITAR: El arco de dibujo no debe exceder 1.0 (270 grados) para evitar solapamiento
+        readonly property real drawValue:   Math.max(0.0, Math.min(1.0, value))
+        readonly property real arcAngle:    drawValue * (360 - 2 * gapAngle)  // 0..270
 
         // Fondo (StyledRect pane = clrPane + border)
         Rectangle {
