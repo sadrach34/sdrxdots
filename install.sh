@@ -35,6 +35,8 @@ WITH_GAMER="auto"           # auto|yes|no
 WITH_PROGRAMMER="auto"      # auto|yes|no
 WITH_SDRX_BEAT="auto"       # auto|yes|no
 WITH_LAPTOP="auto"          # auto|yes|no
+WITH_WE="auto"              # auto|yes|no
+WITH_VIDEOWALL="auto"       # auto|yes|no
 WITH_SDDM="auto"            # auto|yes|no
 WITH_GRUB="auto"            # auto|yes|no
 
@@ -67,6 +69,10 @@ Opciones:
   --no-programmer    Desactivar modo programador
   --sdrx-beat        Instalar SDRX-Beat
   --no-sdrx-beat     No instalar SDRX-Beat
+  --we               Instalar soporte para Wallpaper Engine (Steam)
+  --no-we            No instalar soporte para Wallpaper Engine
+  --videowall        Instalar soporte para fondos de pantalla en video
+  --no-videowall     No instalar soporte para fondos de pantalla en video
   -h, --help         Mostrar ayuda
 
 Ejemplos:
@@ -95,6 +101,10 @@ while [[ $# -gt 0 ]]; do
     --no-programmer) WITH_PROGRAMMER="no" ;;
     --sdrx-beat) WITH_SDRX_BEAT="yes" ;;
     --no-sdrx-beat) WITH_SDRX_BEAT="no" ;;
+    --we) WITH_WE="yes" ;;
+    --no-we) WITH_WE="no" ;;
+    --videowall) WITH_VIDEOWALL="yes" ;;
+    --no-videowall) WITH_VIDEOWALL="no" ;;
     -h|--help) usage; exit 0 ;;
     *) error "Opcion no valida: $1" ;;
   esac
@@ -165,6 +175,16 @@ load_previous_option_defaults() {
   if [[ "$WITH_SDRX_BEAT" == "auto" ]]; then
     prev="$(read_marker_value sdrx_beat)"
     [[ "$prev" =~ ^(yes|no)$ ]] && WITH_SDRX_BEAT="$prev"
+  fi
+
+  if [[ "$WITH_WE" == "auto" ]]; then
+    prev="$(read_marker_value we)"
+    [[ "$prev" =~ ^(yes|no)$ ]] && WITH_WE="$prev"
+  fi
+
+  if [[ "$WITH_VIDEOWALL" == "auto" ]]; then
+    prev="$(read_marker_value videowall)"
+    [[ "$prev" =~ ^(yes|no)$ ]] && WITH_VIDEOWALL="$prev"
   fi
 }
 
@@ -252,6 +272,22 @@ select_optional_modules() {
       WITH_SDRX_BEAT="yes"
     else
       WITH_SDRX_BEAT="no"
+    fi
+  fi
+
+  if [[ "$WITH_WE" == "auto" ]]; then
+    if ask_yes_no "Instalar soporte para Wallpaper Engine (Steam Workshop)?" false; then
+      WITH_WE="yes"
+    else
+      WITH_WE="no"
+    fi
+  fi
+
+  if [[ "$WITH_VIDEOWALL" == "auto" ]]; then
+    if ask_yes_no "Instalar soporte para fondos de pantalla animados (videos)?" false; then
+      WITH_VIDEOWALL="yes"
+    else
+      WITH_VIDEOWALL="no"
     fi
   fi
 }
@@ -554,7 +590,6 @@ install_animation_stack() {
     nwg-displays nwg-look \
     qt5ct kvantum \
     matugen wallust \
-    mpvpaper \
     bc
 
   ensure_yay
@@ -568,8 +603,16 @@ install_animation_stack() {
     libastal-hyprland-git libastal-io-git libastal-mpris-git \
     libastal-network-git libastal-notifd-git libastal-powerprofiles-git \
     libastal-river-git libastal-tray-git libastal-wireplumber-git \
-    libastal-wl-git \
-    linux-wallpaperengine-git
+    libastal-wl-git
+
+  if [[ "$WITH_WE" == "yes" ]]; then
+    ensure_yay
+    yay_install linux-wallpaperengine-git
+  fi
+
+  if [[ "$WITH_VIDEOWALL" == "yes" ]]; then
+    pacman_install mpvpaper
+  fi
 
   ok "Stack de animaciones instalado"
 }
@@ -1244,6 +1287,8 @@ main() {
   info "GRUB: $WITH_GRUB"
   info "Laptop: $WITH_LAPTOP"
   info "Animaciones: $WITH_ANIMATIONS"
+  info "WE (Steam): $WITH_WE"
+  info "VideoWall: $WITH_VIDEOWALL"
   info "Modo gamer: $WITH_GAMER"
   info "Modo programador: $WITH_PROGRAMMER"
   info "SDRX-Beat: $WITH_SDRX_BEAT"
@@ -1311,8 +1356,8 @@ main() {
   set_default_shell
 
   mkdir -p "$(dirname "$MARKER_FILE")"
-  printf "version=%s\nmode=%s\ndate=%s\nrepo=%s\nsddm=%s\ngrub=%s\nlaptop=%s\nanimations=%s\ngamer=%s\nprogrammer=%s\nsdrx_beat=%s\n" \
-    "$DOTS_VERSION" "$MODE" "$(date -Iseconds)" "$REPO_DIR" "$WITH_SDDM" "$WITH_GRUB" "$WITH_LAPTOP" "$WITH_ANIMATIONS" "$WITH_GAMER" "$WITH_PROGRAMMER" "$WITH_SDRX_BEAT" > "$MARKER_FILE"
+  printf "version=%s\nmode=%s\ndate=%s\nrepo=%s\nsddm=%s\ngrub=%s\nlaptop=%s\nanimations=%s\nwe=%s\nvideowall=%s\ngamer=%s\nprogrammer=%s\nsdrx_beat=%s\n" \
+    "$DOTS_VERSION" "$MODE" "$(date -Iseconds)" "$REPO_DIR" "$WITH_SDDM" "$WITH_GRUB" "$WITH_LAPTOP" "$WITH_ANIMATIONS" "$WITH_WE" "$WITH_VIDEOWALL" "$WITH_GAMER" "$WITH_PROGRAMMER" "$WITH_SDRX_BEAT" > "$MARKER_FILE"
 
   echo
   ok "Instalacion completada"
