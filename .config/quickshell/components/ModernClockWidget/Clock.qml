@@ -308,12 +308,13 @@ PanelWindow {
         // --- Content ---
         Column {
             id: container
-                x: clockPanel.centerX
-                    ? Math.round((clockPanel.width - width) / 2)
-                    : Math.max(0, Math.min(clockPanel.customPosX, Math.max(0, clockPanel.width - width)))
-                y: clockPanel.centerY
-                    ? Math.round((clockPanel.height - height) / 2)
-                    : Math.max(0, Math.min(clockPanel.customPosY, Math.max(0, clockPanel.height - height)))
+            x: clockPanel.centerX
+                ? Math.round((clockPanel.width - width) / 2)
+                : Math.max(0, Math.min(clockPanel.customPosX, Math.max(0, clockPanel.width - width)))
+            y: clockPanel.centerY
+                ? Math.round((clockPanel.height - height) / 2)
+                : Math.max(0, Math.min(clockPanel.customPosY, Math.max(0, clockPanel.height - height)))
+            
             Behavior on x {
                 NumberAnimation {
                     duration: clockPanel.moveAnimMs
@@ -328,11 +329,15 @@ PanelWindow {
             }
             spacing: 4
 
-// ── Days of the week ──────────────────────────
+            // ── Days of the week ──────────────────────────
             Item {
                 implicitWidth: clock_day.implicitWidth
                 implicitHeight: clock_day.implicitHeight
                 anchors.horizontalCenter: parent.horizontalCenter
+                // Offset calculation: 
+                // Anurati letterSpacing 10 pushes text left.
+                // 12px offset seems to be the visual sweet spot for most day names.
+                anchors.horizontalCenterOffset: 12
 
                 // shadow
                 Text {
