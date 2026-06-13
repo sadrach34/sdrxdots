@@ -349,20 +349,22 @@ Rectangle {
                 width:  parent.width  - 52
                 height: parent.height - 52
 
+                // Máscara circular (oculta, solo para el efecto)
                 Rectangle {
+                    id: discMask
                     anchors.fill: parent
                     radius: width / 2
-                    color: player.clrSurface
-                    clip: true
-                    
-                    // Capa de clipping circular robusta
+                    visible: false
+                }
+
+                // Contenido del disco con máscara aplicada
+                Item {
+                    id: discContent
+                    anchors.fill: parent
                     layer.enabled: true
                     layer.effect: MultiEffect {
                         maskEnabled: true
-                        maskSource: Rectangle {
-                            width: coverDiscContainer.width; height: coverDiscContainer.height
-                            radius: width / 2; color: "black"
-                        }
+                        maskSource: discMask
                     }
 
                     Image {
@@ -371,12 +373,12 @@ Rectangle {
                         source: player.artworkSource
                         sourceSize: Qt.size(256, 256); fillMode: Image.PreserveAspectCrop
                         onStatusChanged: {
-                            if (status === Image.Error) {
-                                console.log("Failed to load artwork from:", source)
-                            }
+                            if (status === Image.Ready) console.log("Artwork loaded:", source)
+                            if (status === Image.Error) console.log("Artwork error:", source)
                         }
                     }
-                    // Placeholder sin arte (solo se muestra si no hay arte o si hubo un error)
+                    
+                    // Placeholder sin arte
                     Rectangle {
                         anchors.fill: parent; color: player.clrSurface
                         visible: !player.hasArtwork || coverArtImage.status === Image.Error
