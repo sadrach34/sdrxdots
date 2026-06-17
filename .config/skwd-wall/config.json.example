@@ -32,7 +32,7 @@
     "model": "gemma3:4b"
   },
   "steam": {
-    "apiKey": "",
+    "apiKey": "93E6A84F00EEC21830B93141F621B1B5",
     "username": "Sadrach34"
   },
   "wallhaven": {
@@ -89,7 +89,7 @@
       "hexRows": 2,
       "activeCustomPreset": "C1_slices",
       "autoChangeMode": "random",
-      "autoChangeIntervalMinutes": 15,
+      "autoChangeIntervalMinutes": 1,
       "autoChangeEnabled": false,
       "filterBarBgColor": "#000000"
     }
@@ -107,7 +107,5 @@
     "videoTrashDays": 7,
     "autoDeleteImageTrash": false,
     "autoDeleteVideoTrash": false
-  },
-  "displayMode": "scale",
-  "steamWeAssets": ""
+  }
 }
