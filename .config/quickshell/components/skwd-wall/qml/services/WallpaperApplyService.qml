@@ -103,7 +103,7 @@ QtObject {
         var output = _resolveOutputName(outputName)
         _saveState("video", path, "", output)
         var stopCmd = output
-            ? "pkill -f " + JSON.stringify("mpvpaper[[:space:]]+" + output + "([[:space:]]|$)") + " 2>/dev/null; " +
+            ? "pkill -f " + JSON.stringify("mpvpaper.*" + output + "([[:space:]]|$)") + " 2>/dev/null; " +
               "pkill -f " + JSON.stringify("linux-wallpaperengine.*--screen-root " + output + "([[:space:]]|$)") + " 2>/dev/null; "
             : "pkill awww 2>/dev/null; pkill awww-daemon 2>/dev/null; " +
               "pkill mpvpaper 2>/dev/null; " +
@@ -227,7 +227,7 @@ QtObject {
     function _staticStopCommand(outputName) {
         var output = _resolveOutputName(outputName)
         if (output) {
-            return "pkill -TERM -f " + JSON.stringify("mpvpaper[[:space:]]+" + output + "([[:space:]]|$)") + " 2>/dev/null; " +
+            return "pkill -TERM -f " + JSON.stringify("mpvpaper.*" + output + "([[:space:]]|$)") + " 2>/dev/null; " +
                    "pkill -TERM -f " + JSON.stringify("linux-wallpaperengine.*--screen-root " + output + "([[:space:]]|$)") + " 2>/dev/null; " +
                    "sleep 0.1; " +
                    "pkill -KILL -f " + JSON.stringify("linux-wallpaperengine.*--screen-root " + output + "([[:space:]]|$)") + " 2>/dev/null; "
@@ -271,7 +271,7 @@ QtObject {
         var output = _resolveOutputName(outputName)
         var cmd = output
             ? "pkill -f " + JSON.stringify("linux-wallpaperengine.*--screen-root " + output + "([[:space:]]|$)") + " 2>/dev/null; " +
-              "pkill -f " + JSON.stringify("mpvpaper[[:space:]]+" + output + "([[:space:]]|$)") + " 2>/dev/null; "
+              "pkill -f " + JSON.stringify("mpvpaper.*" + output + "([[:space:]]|$)") + " 2>/dev/null; "
             : "for p in $(pgrep -f '(^|/)linux-wallpaperengine([[:space:]]|$)' 2>/dev/null); do kill -TERM \"$p\" 2>/dev/null; done; " +
               "for i in $(seq 1 40); do pgrep -f '(^|/)linux-wallpaperengine([[:space:]]|$)' >/dev/null || break; sleep 0.05; done; " +
               "for p in $(pgrep -f '(^|/)linux-wallpaperengine([[:space:]]|$)' 2>/dev/null); do kill -KILL \"$p\" 2>/dev/null; done; " +
@@ -409,9 +409,9 @@ QtObject {
             ? service.weBinary
             : "linux-wallpaperengine"
         var cmd = "[ -x " + JSON.stringify(bin) + " ] || command -v " + JSON.stringify(bin) + " >/dev/null 2>&1 || exit 127; " +
-            "exec " + JSON.stringify(bin) + " " + audioFlag +
-            " --no-fullscreen-pause --noautomute" + propArgs + screenArgs +
-            assetsArg + " " + JSON.stringify(weId)
+            "nohup setsid " + JSON.stringify(bin) + " " + audioFlag +
+            " --layer background --no-fullscreen-pause --noautomute" + propArgs + screenArgs +
+            assetsArg + " " + JSON.stringify(weId) + " </dev/null >/dev/null 2>&1 &"
         console.log("WallpaperApplyService: launching WE scene:", cmd)
         weProcess.command = ["sh", "-c", cmd]
         weProcess.running = true

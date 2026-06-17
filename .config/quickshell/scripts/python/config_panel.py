@@ -1869,10 +1869,10 @@ class ConfigWindow(Adw.ApplicationWindow):
                 conn = sqlite3.connect(p)
                 cursor = conn.cursor()
                 try:
-                    cursor.execute("SELECT name, thumb FROM meta WHERE type IS NOT NULL")
+                    cursor.execute("SELECT name, thumb, we_id FROM meta WHERE type IS NOT NULL")
                     rows = cursor.fetchall()
                     for row in rows:
-                        wallpapers.append({"name": row[0], "thumb": row[1]})
+                        wallpapers.append({"name": row[0], "thumb": row[1], "we_id": row[2]})
                     conn.close()
                     if wallpapers:
                         break # Found it
@@ -1934,10 +1934,25 @@ class ConfigWindow(Adw.ApplicationWindow):
             for state_file in SKWD_WALL_CACHE_DIR.glob("last-wallpaper*.json"):
                 try:
                     data = json.loads(state_file.read_text())
+                    name = ""
                     path = data.get("path")
-                    if not path: continue
+                    we_id = data.get("we_id")
+
+                    if path:
+                        name = Path(path).name
+                    elif we_id:
+                        # Try to resolve title from DB
+                        db_found = False
+                        for wall in wallpapers_raw:
+                            if str(wall.get("we_id", "")).strip("'") == str(we_id):
+                                name = wall["name"]
+                                db_found = True
+                                break
+                        if not db_found:
+                            name = str(we_id)
                     
-                    name = Path(path).name
+                    if not name: continue
+                    
                     monitor = ""
                     if state_file.stem.startswith("last-wallpaper-"):
                         monitor = state_file.stem[len("last-wallpaper-"):].replace("_", " ")

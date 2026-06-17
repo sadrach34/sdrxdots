@@ -155,12 +155,12 @@ build_we_screen_args() {
 
   local target="${WALL_OUTPUT:-}"
   if [[ -n "$target" && "$target" != "*" ]]; then
-    printf -- ' --screen-root %q --scaling fill --clamp border' "$target"
+    printf -- ' --screen-root %s --scaling fill --clamp border' "$target"
     return 0
   fi
 
   hyprctl -j monitors 2>/dev/null | jq -r '.[].name // empty' 2>/dev/null | while IFS= read -r mon; do
-    [[ -n "$mon" ]] && printf -- ' --screen-root %q --scaling fill --clamp border' "$mon"
+    [[ -n "$mon" ]] && printf -- ' --screen-root %s --scaling fill --clamp border' "$mon"
   done
 }
 
@@ -215,7 +215,7 @@ apply_we() {
   ensure_state_dirs
   stop_we_engine
   if [[ -n "$WALL_OUTPUT" ]]; then
-    pkill -f "mpvpaper[[:space:]]+${WALL_OUTPUT}([[:space:]]|$)" 2>/dev/null || true
+    pkill -f "mpvpaper.*${WALL_OUTPUT}([[:space:]]|$)" 2>/dev/null || true
   else
     pkill mpvpaper 2>/dev/null
     pkill awww 2>/dev/null
@@ -234,7 +234,7 @@ apply_we() {
   fi
 
   # shellcheck disable=SC2086
-  nohup setsid "$WE_BIN" --silent --no-fullscreen-pause --noautomute --set-property bmomode=0 $screen_args $assets_args "$we_id" </dev/null >/dev/null 2>&1 &
+  nohup setsid "$WE_BIN" --layer background --silent --no-fullscreen-pause --noautomute --set-property bmomode=0 $screen_args $assets_args "$we_id" </dev/null >/dev/null 2>&1 &
 
   preview="$(find "$we_item_dir" -maxdepth 1 -type f \( -iname 'preview.jpg' -o -iname 'preview.png' -o -iname 'preview.gif' \) -print -quit 2>/dev/null || true)"
   if [[ -n "$preview" ]]; then
@@ -335,7 +335,7 @@ kill_for_video() {
     detect_wall_backend || true
   fi
   if [[ -n "$WALL_OUTPUT" ]]; then
-    pkill -f "mpvpaper[[:space:]]+${WALL_OUTPUT}([[:space:]]|$)" 2>/dev/null || true
+    pkill -f "mpvpaper.*${WALL_OUTPUT}([[:space:]]|$)" 2>/dev/null || true
     pkill -f "linux-wallpaperengine.*--screen-root ${WALL_OUTPUT}([[:space:]]|$)" 2>/dev/null || true
   else
     [[ -n "$WALL_CMD" ]] && "$WALL_CMD" kill 2>/dev/null
@@ -348,7 +348,7 @@ kill_for_video() {
 
 kill_for_image() {
   if [[ -n "$WALL_OUTPUT" ]]; then
-    pkill -f "mpvpaper[[:space:]]+${WALL_OUTPUT}([[:space:]]|$)" 2>/dev/null || true
+    pkill -f "mpvpaper.*${WALL_OUTPUT}([[:space:]]|$)" 2>/dev/null || true
     pkill -f "linux-wallpaperengine.*--screen-root ${WALL_OUTPUT}([[:space:]]|$)" 2>/dev/null || true
   else
     stop_we_engine
