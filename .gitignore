@@ -22,4 +22,5 @@ CLAUDE.md
 # Configuraciones locales (excluidas para evitar conflictos entre PC y Laptop)
 .config/skwd-wall/config.json
 .config/quickshell/components/ModernClockWidget/positions.json
+.config/quickshell/components/ModernClockWidget/positions.json.bak
 .config/quickshell/components/ModernClockWidget/positionsvertical.json

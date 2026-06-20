@@ -1007,6 +1007,19 @@ apply_sdrxdots() {
   section "Aplicando SdrxDots"
   mkdir -p "$BACKUP_ROOT"
 
+  # Copia de seguridad preventiva de positions.json del usuario antes de cualquier cambio
+  local user_pos="$HOME/.config/quickshell/components/ModernClockWidget/positions.json"
+  if [[ -f "$user_pos" ]]; then
+    info "Creando copia de seguridad preventiva de positions.json..."
+    # 1. Copia local .bak (que ya está excluida de Git)
+    cp "$user_pos" "$user_pos.bak"
+    # 2. Copia en la carpeta de copias de seguridad global con timestamp
+    local ts=$(date +%Y%m%d_%H%M%S)
+    mkdir -p "$BACKUP_ROOT/$ts/ModernClockWidget"
+    cp "$user_pos" "$BACKUP_ROOT/$ts/ModernClockWidget/positions.json"
+    ok "Copia de seguridad guardada en $user_pos.bak y $BACKUP_ROOT/$ts/"
+  fi
+
   [[ -d "$REPO_DIR/.config" ]] || error "No existe $REPO_DIR/.config"
 
   info "Sincronizando .config"
