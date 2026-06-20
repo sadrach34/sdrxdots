@@ -17,7 +17,8 @@ CLAUDE.md
 
 # Config personal (editable por el usuario). Solo config.default.json se sube al repo.
 .config/quickshell/data/config.json
-/home/sadrach/dotfiles/.config/hypr/monitors.conf
+.config/hypr/monitors.conf
+.config/hypr/workspaces.conf
 # Configuraciones locales (excluidas para evitar conflictos entre PC y Laptop)
 .config/skwd-wall/config.json
 .config/quickshell/components/ModernClockWidget/positions.json
