@@ -281,7 +281,7 @@
 	"format-icons": [
 		"󰤯", "󰤟", "󰤢", "󰤥", "󰤨"
 	],
-	"on-click-right": "$HOME/.config/hypr/scripts/WaybarScripts.sh --nmtui"
+	"on-click-right": "qs ipc call networkpopup toggle wifi"
 },
 
 "network#speed": {
@@ -299,7 +299,8 @@
 	"max-length": 24,
 	"format-icons": [
 		"󰤯", "󰤟", "󰤢", "󰤥", "󰤨"
-	]
+	],
+	"on-click-right": "qs ipc call networkpopup toggle wifi"
 },
 
 "power-profiles-daemon": {

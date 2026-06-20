@@ -9,7 +9,7 @@
     "steamWeAssets": "~/.local/share/Steam/steamapps/common/wallpaper_engine/assets",
     "steam": "~/.local/share/Steam"
   },
-  "monitor": "DP-1",
+  "monitor": "eDP-1",
   "ollama": {
     "url": "http://localhost:11434",
     "model": "gemma3:4b"
@@ -46,15 +46,15 @@
   "optimization": {
     "enabled": false,
     "toggles": {
-      "disableBorders": false,
-      "disableTransparency": false,
-      "disableAnimations": false,
-      "disableBlur": false,
-      "disableShadows": false,
-      "disableRounding": false,
-      "disableGaps": false,
-      "disableDimInactive": false,
-      "disableQuickshellAnimations": false
+      "disableBorders": true,
+      "disableTransparency": true,
+      "disableAnimations": true,
+      "disableBlur": true,
+      "disableShadows": true,
+      "disableRounding": true,
+      "disableGaps": true,
+      "disableDimInactive": true,
+      "disableQuickshellAnimations": true
     },
     "restoreState": null
   },
@@ -63,7 +63,7 @@
     "bar": {
       "backend": "waybar",
       "waybarConfig": "~/.config/waybar/configs/[TOP] Default",
-      "waybarStyle": "~/.config/waybar/style/[Dark] Purpl.css",
+      "waybarStyle": "~/.config/waybar/style/[Black & White] Monochrome.css",
       "enabled": true,
       "topPanel": true,
       "dashboard": true,
@@ -86,12 +86,12 @@
         "visualizerBottom": true
       },
       "waybarLayoutPreset": "[TOP] Default",
-      "waybarStylePreset": "[Dark] Purpl"
+      "waybarStylePreset": "[Black & White] Monochrome"
     },
     "lockscreen": false,
     "appLauncher": {
       "enabled": true,
-      "backend": "rofi"
+      "backend": "fuzzel"
     },
     "wallpaperSelector": {
       "enabled": true,
@@ -137,6 +137,8 @@
   "appearance": {
     "colorMode": "dark"
   },
-  "secondary_monitor": "",
-  "monitors_list": []
+  "secondary_monitor": "disabled",
+  "monitors_list": [
+    "eDP-1"
+  ]
 }

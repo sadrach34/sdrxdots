@@ -74,8 +74,8 @@ Item {
                         return "\ue4ea"                   // wifiHigh (simplificado)
                     }
                     isActive:    wifiEnabled
-                    tooltipText: wifiEnabled ? "Wi-Fi: On" : "Wi-Fi: Off"
                     onBtnClicked: { wifiToggleProc.command = ["bash", "-c", wifiEnabled ? "nmcli radio wifi off" : "nmcli radio wifi on"]; wifiToggleProc.running = true }
+                    onBtnRightClicked: { topPanel.openNetworkPopup("wifi") }
 
                     Process {
                         id: wifiStateProc
@@ -92,12 +92,12 @@ Item {
                     property bool btEnabled: false
                     iconText: btEnabled ? "\ue0da" : "\ue0de" // bluetooth : bluetoothOff
                     isActive:    btEnabled
-                    tooltipText: btEnabled ? "Bluetooth: On" : "Bluetooth: Off"
-                    onBtnClicked: { btToggleProc.command = ["bash", "-c", btEnabled ? "bluetoothctl power off" : "bluetoothctl power on"]; btToggleProc.running = true }
+                    onBtnClicked: { btToggleProc.command = ["bash", "-c", btEnabled ? "rfkill block bluetooth" : "rfkill unblock bluetooth"]; btToggleProc.running = true }
+                    onBtnRightClicked: { topPanel.openNetworkPopup("bt") }
 
                     Process {
                         id: btStateProc
-                        command: ["bash", "-c", "bluetoothctl show | grep -i 'powered: yes'"]
+                        command: ["bash", "-c", "LC_ALL=C rfkill -no TYPE,SOFT | grep 'bluetooth unblocked'"]
                         stdout: SplitParser { onRead: data => btBtn.btEnabled = data.trim().length > 0 }
                         Component.onCompleted: running = true
                     }

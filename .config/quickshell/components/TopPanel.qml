@@ -19,6 +19,11 @@ PanelWindow {
     id: topPanel
     screen: Quickshell.screens.find(s => s.name === root.topPanelMonitorName) ?? Quickshell.screens[0]
 
+    function openNetworkPopup(mode) {
+        root.showNetworkPopup(mode)
+        root.topPanelVisible = false
+    }
+
     property bool barVolumeEnabled: true
     property bool barCalendarEnabled: true
     property bool barMusicEnabled: true

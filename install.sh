@@ -179,12 +179,12 @@ load_previous_option_defaults() {
 
   if [[ "$WITH_WE" == "auto" ]]; then
     prev="$(read_marker_value we)"
-    [[ "$prev" =~ ^(yes|no)$ ]] && WITH_WE="$prev"
+    [[ "$prev" =~ ^(yes|no)$ ]] && WITH_WE="$prev" || true
   fi
 
   if [[ "$WITH_VIDEOWALL" == "auto" ]]; then
     prev="$(read_marker_value videowall)"
-    [[ "$prev" =~ ^(yes|no)$ ]] && WITH_VIDEOWALL="$prev"
+    [[ "$prev" =~ ^(yes|no)$ ]] && WITH_VIDEOWALL="$prev" || true
   fi
 }
 
@@ -809,10 +809,13 @@ EOF
 
   ok "Modo programador listo"
 }
-
 backup_target() {
   local src="$1"
   local dst="$2"
+
+  if [[ ! -e "$src" && ! -L "$src" ]]; then
+    return 0
+  fi
 
   if [[ -e "$dst" || -L "$dst" ]]; then
     local ts rel backup
@@ -820,13 +823,12 @@ backup_target() {
     rel="${dst#${HOME}/}"
     backup="$BACKUP_ROOT/$ts/$rel"
     mkdir -p "$(dirname "$backup")"
-    mv "$dst" "$backup"
+    mv "$dst" "$backup" 2>/dev/null || cp -a "$dst" "$backup" 2>/dev/null || true
     warn "Backup: $dst -> $backup"
   fi
 
   mkdir -p "$(dirname "$dst")"
-  cp -a "$src" "$dst"
-  ok "Aplicado: $dst"
+  cp -a "$src" "$dst" 2>/dev/null || true
 }
 
 sync_directory_contents() {
@@ -875,6 +877,98 @@ cleanup_hypr_version_markers_best_effort() {
   ok "Version Hypr activa: $desired_marker"
 }
 
+detect_monitor_info() {
+  if command -v hyprctl >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+    hyprctl monitors -j
+  else
+    echo "[]"
+  fi
+}
+
+configure_monitors_dynamically() {
+  section "Configuracion de monitores (dinamica)"
+
+  local monitors_json
+  monitors_json=$(detect_monitor_info)
+  local count
+  count=$(echo "$monitors_json" | jq '. | length' 2>/dev/null || echo "0")
+
+  if [[ "$count" == "0" ]]; then
+    warn "No se pudo detectar informacion de monitores via hyprctl + jq."
+    return
+  fi
+
+  local m1_name m1_res m1_hz
+  m1_name=$(echo "$monitors_json" | jq -r '.[0].name')
+  m1_res="$(echo "$monitors_json" | jq -r '.[0].width')x$(echo "$monitors_json" | jq -r '.[0].height')"
+  m1_hz=$(echo "$monitors_json" | jq -r '.[0].refreshRate' | awk '{printf "%.2f", $1}')
+
+  info "Monitor primario: $m1_name ($m1_res @ $m1_hz Hz)"
+
+  local m2_name="disabled"
+  local m2_res=""
+  local m2_hz=""
+
+  if [[ $count -gt 1 ]]; then
+    m2_name=$(echo "$monitors_json" | jq -r '.[1].name')
+    m2_res="$(echo "$monitors_json" | jq -r '.[1].width')x$(echo "$monitors_json" | jq -r '.[1].height')"
+    m2_hz=$(echo "$monitors_json" | jq -r '.[1].refreshRate' | awk '{printf "%.2f", $1}')
+    info "Monitor secundario detectado: $m2_name ($m2_res @ $m2_hz Hz)"
+  fi
+
+  # 1. Hyprland monitors.conf
+  local mon_conf="$HOME/.config/hypr/monitors.conf"
+  {
+    echo "# Generated dynamically by SdrxDots installer"
+    echo "monitor=$m1_name,${m1_res}@${m1_hz},0x0,1"
+    if [[ "$m2_name" != "disabled" ]]; then
+      echo "monitor=$m2_name,${m2_res}@${m2_hz},${m1_res},1"
+    fi
+  } > "$mon_conf"
+
+  # 2. Hyprland UserDefaults.conf
+  local user_defaults="$HOME/.config/hypr/UserConfigs/01-UserDefaults.conf"
+  if [[ -f "$user_defaults" ]]; then
+    sed -i "s|^\$main_monitor\s*=.*|\$main_monitor = $m1_name|" "$user_defaults"
+    sed -i "s|^\$secondary_monitor\s*=.*|\$secondary_monitor = $m2_name|" "$user_defaults"
+  fi
+
+  # 3. Quickshell config.json
+  local qs_conf="$HOME/.config/quickshell/data/config.json"
+  if [[ -f "$qs_conf" ]]; then
+    sed -i "s/\"monitor\":\s*\"[^\"]*\"/\"monitor\": \"$m1_name\"/" "$qs_conf"
+    sed -i "s/\"secondary_monitor\":\s*\"[^\"]*\"/\"secondary_monitor\": \"$m2_name\"/" "$qs_conf"
+    if [[ "$m2_name" == "disabled" ]]; then
+      sed -i "s/\"monitors_list\":\s*\[[^]]*\]/\"monitors_list\": [\"$m1_name\"]/" "$qs_conf"
+    else
+      sed -i "s/\"monitors_list\":\s*\[[^]]*\]/\"monitors_list\": [\"$m1_name\", \"$m2_name\"]/" "$qs_conf"
+    fi
+  fi
+
+  # 4. Waybar
+  local wb_conf="$HOME/.config/waybar/configs/[TOP] Default"
+  if [[ -f "$wb_conf" ]]; then
+    info "Actualizando template de Waybar..."
+    # Actualizar outputs
+    sed -i "0,/\"output\":\s*\"[^\"]*\"/s//\"output\": \"$m1_name\"/" "$wb_conf"
+    if [[ "$m2_name" != "disabled" ]]; then
+      if grep -q "Bar 2: Secondary monitor" "$wb_conf"; then
+        sed -i "/Bar 2: Secondary monitor/,/\"output\":/s/\"output\":\s*\"[^\"]*\"/\"output\": \"$m2_name\"/" "$wb_conf"
+      fi
+    fi
+
+    # Si es laptop, asegurar modulo bateria en el template si no esta
+    if [[ "$WITH_LAPTOP" == "yes" ]]; then
+      if ! grep -q '"battery"' "$wb_conf"; then
+        info "Agregando modulo bateria al template de Waybar..."
+        sed -i 's/"custom\/qs_dashboard"/"battery", "custom\/qs_dashboard"/g' "$wb_conf"
+      fi
+    fi
+  fi
+
+  ok "Configuracion de monitores finalizada para $m1_name"
+}
+
 apply_sdrxdots() {
   section "Aplicando SdrxDots"
   mkdir -p "$BACKUP_ROOT"
@@ -884,6 +978,9 @@ apply_sdrxdots() {
   info "Sincronizando .config"
   sync_directory_contents "$REPO_DIR/.config" "$HOME/.config"
   cleanup_hypr_version_markers_best_effort
+
+  # Aplicar deteccion de monitores sobre los archivos ya copiados al HOME
+  configure_monitors_dynamically
 
   # Crear UserLauncherBinds.conf desde base si no existe
   local launcher_base="$HOME/.config/hypr/UserConfigs/UserLauncherBinds.conf.base"

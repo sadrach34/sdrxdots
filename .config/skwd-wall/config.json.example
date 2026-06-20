@@ -107,5 +107,7 @@
     "videoTrashDays": 7,
     "autoDeleteImageTrash": false,
     "autoDeleteVideoTrash": false
-  }
+  },
+  "displayMode": "scale",
+  "steamWeAssets": ""
 }

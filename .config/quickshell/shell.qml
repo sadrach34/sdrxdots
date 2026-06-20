@@ -52,6 +52,10 @@ ShellRoot {
     property bool focusWarningVisible: false // aviso de app bloqueada
     property bool concentrationMuted: false // silencio para la alarma de concentración
 
+    property bool networkPopupVisible:    false  // standalone networks manager popup
+    property string networkPopupMonitorName: ""
+    property string networkPopupActiveMode: "wifi"
+
     function _focusedMonitorName() {
         return Hyprland.focusedMonitor ? Hyprland.focusedMonitor.name : ""
     }
@@ -85,6 +89,23 @@ ShellRoot {
     function openWallpaperPicker()   { wallpaperPickerMonitorName = _focusedMonitorName(); wallpaperPickerVisible = true }
     function closeWallpaperPicker()  { wallpaperPickerVisible = false }
 
+    function showNetworkPopup(mode) {
+        networkPopupMonitorName = _focusedMonitorName()
+        networkPopupActiveMode = mode
+        networkPopupVisible = true
+    }
+    function toggleNetworkPopup(mode) {
+        if (!networkPopupVisible) {
+            showNetworkPopup(mode)
+        } else {
+            if (networkPopupActiveMode !== mode) {
+                networkPopupActiveMode = mode
+            } else {
+                networkPopupVisible = false
+            }
+        }
+    }
+
     // ── Componentes (cada uno es una PanelWindow o similar en Wayland) ───────
 
     Dashboard {}           // Sidebar derecho: perfil, power bar, música, notificaciones,
@@ -97,6 +118,12 @@ ShellRoot {
         showing: root.audioSelectorVisible
         mainMonitor: root.audioSelectorMonitorName
         colors: skwdColors
+    }
+
+    NetworkPopupWrapper {
+        showing: root.networkPopupVisible
+        mainMonitor: root.networkPopupMonitorName
+        activeMode: root.networkPopupActiveMode
     }
 
     NotificationToast {}   // Toast flotante esquina superior derecha: muestra cada
@@ -160,6 +187,12 @@ ShellRoot {
     IpcHandler {
         target: "audioselector"
         function toggle() { root.toggleAudioSelector() }
+    }
+
+    IpcHandler {
+        target: "networkpopup"
+        function show(mode: string): void { root.showNetworkPopup(mode) }
+        function toggle(mode: string): void { root.toggleNetworkPopup(mode) }
     }
 
     IpcHandler {
