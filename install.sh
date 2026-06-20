@@ -935,6 +935,11 @@ configure_monitors_dynamically() {
 
   # 3. Quickshell config.json
   local qs_conf="$HOME/.config/quickshell/data/config.json"
+  local qs_default="$HOME/.config/quickshell/data/config.default.json"
+  if [[ ! -f "$qs_conf" && -f "$qs_default" ]]; then
+    info "Creando config.json desde plantilla..."
+    cp "$qs_default" "$qs_conf"
+  fi
   if [[ -f "$qs_conf" ]]; then
     sed -i "s/\"monitor\":\s*\"[^\"]*\"/\"monitor\": \"$m1_name\"/" "$qs_conf"
     sed -i "s/\"secondary_monitor\":\s*\"[^\"]*\"/\"secondary_monitor\": \"$m2_name\"/" "$qs_conf"
@@ -942,6 +947,21 @@ configure_monitors_dynamically() {
       sed -i "s/\"monitors_list\":\s*\[[^]]*\]/\"monitors_list\": [\"$m1_name\"]/" "$qs_conf"
     else
       sed -i "s/\"monitors_list\":\s*\[[^]]*\]/\"monitors_list\": [\"$m1_name\", \"$m2_name\"]/" "$qs_conf"
+    fi
+  fi
+
+  # 5. Hyprland workspaces.conf
+  local ws_conf="$HOME/.config/hypr/workspaces.conf"
+  local ws_default="$HOME/.config/hypr/workspaces.conf.example"
+  if [[ ! -f "$ws_conf" ]]; then
+    if [[ -f "$ws_default" ]]; then
+      info "Creando workspaces.conf desde plantilla..."
+      cp "$ws_default" "$ws_conf"
+      # Configurar el monitor principal en el archivo recién creado
+      sed -i "s/monitor:eDP-1/monitor:$m1_name/g" "$ws_conf"
+    else
+      info "Creando workspaces.conf vacío..."
+      touch "$ws_conf"
     fi
   fi
 
