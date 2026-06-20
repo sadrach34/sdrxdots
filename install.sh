@@ -965,6 +965,20 @@ configure_monitors_dynamically() {
     fi
   fi
 
+  # 6. Quickshell positions.json
+  local pos_conf="$HOME/.config/quickshell/components/ModernClockWidget/positions.json"
+  local pos_bak="$HOME/.config/quickshell/components/ModernClockWidget/positions.json.bak"
+  local pos_default="$HOME/.config/quickshell/components/ModernClockWidget/positions.json.example"
+  if [[ ! -f "$pos_conf" ]]; then
+    if [[ -f "$pos_bak" ]]; then
+      info "Restaurando positions.json desde positions.json.bak..."
+      cp "$pos_bak" "$pos_conf"
+    elif [[ -f "$pos_default" ]]; then
+      info "Creando positions.json desde plantilla..."
+      cp "$pos_default" "$pos_conf"
+    fi
+  fi
+
   # 4. Waybar
   local wb_conf="$HOME/.config/waybar/configs/[TOP] Default"
   if [[ -f "$wb_conf" ]]; then
