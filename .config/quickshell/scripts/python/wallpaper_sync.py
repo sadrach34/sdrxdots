@@ -10,58 +10,82 @@ CACHE_DIR = HOME / ".cache/skwd-wall"
 
 def get_monitors():
     try:
-        out = subprocess.check_output(["hyprctl", "monitors", "-j"])
+        out = subprocess.check_output(["hyprctl", "monitors", "-j"], text=True)
         return [m["name"] for m in json.loads(out)]
     except Exception:
         return []
 
 def get_running_video_wallpapers():
-    # monitor -> path
+    # monitor -> state_dict or path
     video_walls = {}
+    monitors = get_monitors()
+    
+    # Use pgrep -af for reliable command line retrieval
     try:
+        ps_out = subprocess.check_output(["ps", "auxw"], text=True)
+        lines = ps_out.splitlines()
+        
         # Check mpvpaper
-        ps = subprocess.check_output(["ps", "aux"], text=True)
-        for line in ps.splitlines():
+        for line in lines:
             if "mpvpaper" in line and not "grep" in line:
-                # Basic parsing for mpvpaper: mpvpaper [options] monitor path
-                # Example: mpvpaper -o loop --mute=yes HDMI-A-1 /path/to/wall.mp4
-                # We look for the last part which is usually the path, 
-                # and the monitor name which is usually before it.
-                parts = line.split()
-                # Find the monitor name in the command line
-                monitors = get_monitors()
                 for mon in monitors:
-                    if mon in parts:
-                        # The path is usually the last argument
-                        path = parts[-1]
-                        if os.path.exists(path) and (path.endswith(".mp4") or path.endswith(".mkv") or path.endswith(".webm")):
-                            video_walls[mon] = path
+                    # Look for monitor name with spaces around it or at start/end of a part
+                    if re.search(rf"\s+{re.escape(mon)}(\s+|$)", line):
+                        # Extract path: it's usually at the end, but can have spaces.
+                        # mpvpaper [args] monitor path
+                        # We try to find the part after the monitor name
+                        parts = re.split(rf"\s+{re.escape(mon)}\s+", line)
+                        if len(parts) > 1:
+                            path = parts[-1].split(" </dev/null")[0].strip()
+                            if os.path.exists(path):
+                                # Check if it's a WE workshop video
+                                we_match = re.search(r"workshop/content/431960/(\d+)", path)
+                                if we_match:
+                                    video_walls[mon] = {"type": "we", "we_id": we_match.group(1)}
+                                else:
+                                    video_walls[mon] = {"type": "video", "path": path}
             
+            # Check linux-wallpaperengine
             if "linux-wallpaperengine" in line and not "grep" in line:
-                # Example: linux-wallpaperengine ... --screen-root DP-1 ... ID
                 match_mon = re.search(r"--screen-root\s+([^\s]+)", line)
                 if match_mon:
                     mon = match_mon.group(1).strip('"').strip("'")
-                    # For WE, the last arg is usually the ID
+                    # ID is usually the last argument
                     parts = line.split()
                     we_id = parts[-1]
                     if we_id.isdigit():
-                        video_walls[mon] = ("we", we_id)
-    except Exception:
+                        video_walls[mon] = {"type": "we", "we_id": we_id}
+    except Exception as e:
+        print(f"Error detection: {e}")
         pass
     return video_walls
 
 def get_awww_state():
     state = {}
     try:
+        # awww query output format:
+        # : DP-1: 1920x1080, scale: 1, currently displaying: image: /path/to/wall.webp
         out = subprocess.check_output(["awww", "query"], text=True)
         for line in out.splitlines():
             if "currently displaying: image:" in line:
-                parts = line.split(":")
-                if len(parts) >= 2:
-                    mon = parts[1].strip()
-                    path = line.split("image:")[1].strip()
-                    state[mon] = path
+                # Split by colons and handle the leading colon if present
+                line_parts = line.strip().split(":")
+                # After strip() and split(':'), we might have:
+                # ['', ' DP-1', ' 1920x1080, scale', ' 1, currently displaying', ' image', ' /path/to/wall.webp']
+                # OR if no leading colon:
+                # ['DP-1', ' 1920x1080, scale', ' 1, currently displaying', ' image', ' /path/to/wall.webp']
+                
+                mon = ""
+                if line_parts[0] == "" and len(line_parts) > 1:
+                    mon = line_parts[1].strip()
+                else:
+                    mon = line_parts[0].strip()
+                
+                if mon:
+                    path_parts = line.split("image:")
+                    if len(path_parts) > 1:
+                        path = path_parts[1].strip()
+                        state[mon] = path
     except Exception:
         pass
     return state
@@ -70,6 +94,9 @@ def sync():
     monitors = get_monitors()
     video_walls = get_running_video_wallpapers()
     awww_state = get_awww_state()
+    
+    if not os.path.exists(CACHE_DIR):
+        os.makedirs(CACHE_DIR, exist_ok=True)
     
     for mon in monitors:
         safe_mon = mon.replace(" ", "_")
@@ -80,11 +107,7 @@ def sync():
 
         # 1. Check if a video/WE is actually running for this monitor
         if mon in video_walls:
-            val = video_walls[mon]
-            if isinstance(val, tuple) and val[0] == "we":
-                new_state = {"type": "we", "we_id": val[1]}
-            else:
-                new_state = {"type": "video", "path": val}
+            new_state = video_walls[mon]
             needs_update = True
         # 2. If no video, check what awww (static) is displaying
         elif mon in awww_state:
@@ -103,7 +126,8 @@ def sync():
             if json.dumps(new_state, sort_keys=True) != json.dumps(current_state, sort_keys=True):
                 state_file.write_text(json.dumps(new_state, indent=2))
                 
-                # Update global if single monitor
+                # Update global if single monitor or this is the focused monitor?
+                # For now, let's keep the single monitor logic or update global with focused monitor
                 if len(monitors) == 1:
                     (CACHE_DIR / "last-wallpaper.json").write_text(json.dumps(new_state, indent=2))
                 

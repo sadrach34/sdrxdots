@@ -22,12 +22,21 @@ QtObject {
     readonly property string _matugenConfig: cacheDir + "/matugen-config.toml"
     readonly property var _transitionCfg: Config._data && Config._data.wallpaperTransition ? Config._data.wallpaperTransition : ({})
     property bool _stateFileLoaded: false
+    property var _restoredScreens: []
+    property var _pendingRestores: []
+    property var fileReaderComponent: Component {
+        FileView { blockLoading: true }
+    }
     property var _stateFile: FileView {
         path: service.cacheDir + "/last-wallpaper.json"
         preload: true
         watchChanges: true
         onLoaded: {
             service._stateFileLoaded = true
+            for (var i = 0; i < service._pendingRestores.length; i++) {
+                service._restoreScreenImmediate(service._pendingRestores[i])
+            }
+            service._pendingRestores = []
             service._tryRestore()
         }
         onFileChanged: {
@@ -102,20 +111,76 @@ QtObject {
     function applyVideo(path, outputName) {
         var output = _resolveOutputName(outputName)
         _saveState("video", path, "", output)
-        var stopCmd = output
-            ? "pkill -f " + JSON.stringify("mpvpaper.*" + output + "([[:space:]]|$)") + " 2>/dev/null; " +
-              "pkill -f " + JSON.stringify("linux-wallpaperengine.*--screen-root " + output + "([[:space:]]|$)") + " 2>/dev/null; "
-            : "pkill awww 2>/dev/null; pkill awww-daemon 2>/dev/null; " +
+
+        var fileBase = _basename(path)
+        var checkCmd = "pgrep -f " + JSON.stringify("mpvpaper.*" + output + "([[:space:]]|$).*" + fileBase) + " >/dev/null"
+
+        _checkRunning(checkCmd,
+            function() {
+                console.log("WallpaperApplyService: video already running on", output, "for path", path)
+                wallpaperApplied("video", _basename(path))
+            },
+            function() {
+                var stopCmd = output
+                    ? "pkill -f " + JSON.stringify("mpvpaper.*" + output + "([[:space:]]|$)") + " 2>/dev/null; " +
+                      "pkill -f " + JSON.stringify("linux-wallpaperengine.*--screen-root " + output + "([[:space:]]|$)") + " 2>/dev/null; "
+                    : "pkill awww 2>/dev/null; pkill awww-daemon 2>/dev/null; " +
+                      "pkill mpvpaper 2>/dev/null; " +
+                      "pkill -9 -f '[l]inux-wallpaperengine' 2>/dev/null; "
+                var target = output || "*"
+                mpvProcess.command = ["sh", "-c",
+                    stopCmd +
+                    "rm -f " + JSON.stringify(videoDir + "/lockscreen-video.mp4") + "; " +
+                    "nohup setsid mpvpaper -o " + (wallpaperMute ? "'loop --mute=yes'" : "'loop'") + " " + JSON.stringify(target) + " " + JSON.stringify(path) + " </dev/null >/dev/null 2>&1 &"]
+                mpvProcess.running = true
+                _extractVideoThumb(path)
+                wallpaperApplied("video", _basename(path))
+            }
+        )
+    }
+
+    function _runProcessDynamic(cmdLine) {
+        var proc = reloadComponent.createObject(service)
+        proc.command = cmdLine
+        proc.exited.connect(function() { proc.destroy() })
+        proc.running = true
+        return proc
+    }
+
+    function _checkRunning(cmd, onRunning, onNotRunning) {
+        var proc = reloadComponent.createObject(service)
+        proc.command = ["sh", "-c", cmd]
+        proc.exited.connect(function(code) {
+            proc.destroy()
+            if (code === 0) {
+                if (onRunning) onRunning()
+            } else {
+                if (onNotRunning) onNotRunning()
+            }
+        })
+        proc.running = true
+    }
+
+    function _killAllDynamic(outputName, callback) {
+        var output = _resolveOutputName(outputName)
+        var cmd = output
+            ? "pkill -f " + JSON.stringify("linux-wallpaperengine.*--screen-root " + output + "([[:space:]]|$)") + " 2>/dev/null; " +
+              "pkill -f " + JSON.stringify("mpvpaper.*" + output + "([[:space:]]|$)") + " 2>/dev/null; "
+            : "for p in $(pgrep -f '(^|/)linux-wallpaperengine([[:space:]]|$)' 2>/dev/null); do kill -TERM \"$p\" 2>/dev/null; done; " +
+              "for i in $(seq 1 40); do pgrep -f '(^|/)linux-wallpaperengine([[:space:]]|$)' >/dev/null || break; sleep 0.05; done; " +
+              "for p in $(pgrep -f '(^|/)linux-wallpaperengine([[:space:]]|$)' 2>/dev/null); do kill -KILL \"$p\" 2>/dev/null; done; " +
+              "for i in $(seq 1 20); do pgrep -f '(^|/)linux-wallpaperengine([[:space:]]|$)' >/dev/null || break; sleep 0.05; done; " +
               "pkill mpvpaper 2>/dev/null; " +
-              "pkill -9 -f '[l]inux-wallpaperengine' 2>/dev/null; "
-        var target = output || "*"
-        mpvProcess.command = ["sh", "-c",
-            stopCmd +
-            "rm -f " + JSON.stringify(videoDir + "/lockscreen-video.mp4") + "; " +
-            "nohup setsid mpvpaper -o " + (wallpaperMute ? "'loop --mute=yes'" : "'loop'") + " " + JSON.stringify(target) + " " + JSON.stringify(path) + " </dev/null >/dev/null 2>&1 &"]
-        mpvProcess.running = true
-        _extractVideoThumb(path)
-        wallpaperApplied("video", _basename(path))
+              "pkill awww 2>/dev/null; " +
+              "pkill awww-daemon 2>/dev/null; "
+        
+        var proc = reloadComponent.createObject(service)
+        proc.command = ["sh", "-c", cmd + "rm -f " + JSON.stringify(videoDir + "/lockscreen-video.mp4") + "; sleep 0.2; true"]
+        proc.exited.connect(function() {
+            proc.destroy()
+            if (callback) callback()
+        })
+        proc.running = true
     }
 
     function applyWE(weId, outputName) {
@@ -125,47 +190,111 @@ QtObject {
         _lastWeId = weId
         _lastWeOutputName = output
         _reclaimOllamaVram()
-        _pendingAction = function() {
-            _launchWE(weId, output)
-            _extractWEThumb(weId)
-            wallpaperApplied("we", weId)
-        }
-        _killAll(output)
+        
+        var checkCmd = "pgrep -f " + JSON.stringify("linux-wallpaperengine.*--screen-root " + output + "([[:space:]]|$).*--bg " + weId + "([[:space:]]|$)") + " >/dev/null || " +
+                       "pgrep -f " + JSON.stringify("mpvpaper.*" + output + "([[:space:]]|$).*workshop/content/431960/" + weId + "([[:space:]]|$)") + " >/dev/null"
+        
+        _checkRunning(checkCmd,
+            function() {
+                console.log("WallpaperApplyService: WE scene already running on", output, "for id", weId)
+                wallpaperApplied("we", weId)
+            },
+            function() {
+                var action = function() {
+                    _launchWE(weId, output)
+                    _extractWEThumb(weId)
+                    wallpaperApplied("we", weId)
+                }
+                _killAllDynamic(output, action)
+            }
+        )
     }
 
     property bool _restoreRequested: false
-
+ 
     function restore() {
         _restoreRequested = true
         _tryRestore()
     }
 
-    function _tryRestore() {
-        if (!_restoreRequested || !_stateFileLoaded) return
-        _restoreRequested = false
+    function restoreScreen(outputName) {
+        if (!_stateFileLoaded) {
+            _pendingRestores.push(outputName)
+            return
+        }
+        _restoreScreenImmediate(outputName)
+    }
 
-        var restoredOutputs = 0
+    function _restoreScreenImmediate(outputName) {
+        var output = _resolveOutputName(outputName)
+        if (!output) return
+
+        if (_restoredScreens.indexOf(output) !== -1) return
+        _restoredScreens.push(output)
+
+        var outputState = _readStateSafe(output)
+        if (outputState) {
+            console.log("WallpaperApplyService: restoring screen:", output)
+            _restoreState(outputState, output)
+        } else {
+            var screens = Quickshell.screens || []
+            if (screens.length === 1) {
+                var state = _readStateSafe("")
+                if (state) {
+                    console.log("WallpaperApplyService: restoring single screen using global state:", output)
+                    _restoreState(state, output)
+                }
+            }
+        }
+    }
+
+    function _tryRestore() {
+        if (!_stateFileLoaded) return
+
         var screens = Quickshell.screens || []
+        var restoredOutputs = 0
+
         for (var i = 0; i < screens.length; i++) {
             var output = screens[i] && screens[i].name ? screens[i].name : ""
             if (!output) continue
+
+            // Si ya restauramos esta pantalla en esta sesión, no lo volvemos a hacer
+            if (_restoredScreens.indexOf(output) !== -1) continue
+
             var outputState = _readStateSafe(output)
-            if (!outputState) continue
-            if (_restoreState(outputState, output))
-                restoredOutputs += 1
+            if (outputState) {
+                if (_restoreState(outputState, output)) {
+                    restoredOutputs += 1
+                }
+            }
+            // Marcamos como procesada para evitar bucles o intentos fallidos repetidos
+            _restoredScreens.push(output)
         }
 
-        if (restoredOutputs > 0)
-            return
-
-        if (screens.length > 1) {
-            console.log("WallpaperApplyService: skip global restore on multi-monitor setup")
+        // Si se restauró alguna pantalla individualmente, la restauración global del inicio se da por finalizada
+        if (restoredOutputs > 0) {
+            _restoreRequested = false
             return
         }
 
-        var state = _readStateSafe("")
-        if (state)
-            _restoreState(state, "")
+        // Si tenemos monitores pero no se pudo restaurar ninguno individualmente
+        if (screens.length > 0) {
+            if (_restoreRequested) {
+                _restoreRequested = false
+                if (screens.length > 1) {
+                    console.log("WallpaperApplyService: skip global restore on multi-monitor setup")
+                    return
+                }
+                var state = _readStateSafe("")
+                if (state) {
+                    _restoreState(state, "")
+                }
+            }
+            return
+        }
+
+        // Si screens.length === 0, mantenemos _restoreRequested = true para
+        // que se procese tan pronto como se detecte la primera pantalla en on_ScreensChanged.
     }
 
     function _saveState(type, path, weId, outputName) {
@@ -185,18 +314,16 @@ QtObject {
 
     function _readStateSafe(outputName) {
         var output = _resolveOutputName(outputName)
-        var text = ""
-        if (output) {
-            _stateReader.path = _statePathFor(output)
-            text = _stateReader.text().trim()
-        } else {
-            text = _stateFile.text().trim()
-        }
+        var path = output ? _statePathFor(output) : (service.cacheDir + "/last-wallpaper.json")
+        
+        var reader = fileReaderComponent.createObject(service, { path: path })
+        var text = reader.text().trim()
+        reader.destroy()
+        
         if (!text) return null
         try { return JSON.parse(text) }
         catch (e) { return null }
     }
-    property var _stateReader: FileView { id: stateReader }
 
     function _restoreState(state, outputName) {
         try {
@@ -341,64 +468,49 @@ QtObject {
     }
 
     function _launchWE(weId, outputName) {
-        _weProjectStdout = []
-        _weReadProject.command = ["cat", weDir + "/" + weId + "/project.json"]
-        _weReadProject.running = true
-        _pendingWeId = weId
-        _pendingWeOutputName = _resolveOutputName(outputName)
-    }
+        var output = _resolveOutputName(outputName)
+        var projPath = weDir + "/" + weId + "/project.json"
+        var reader = fileReaderComponent.createObject(service, { path: projPath })
+        var text = reader.text().trim()
+        reader.destroy()
+        try {
+            var proj = JSON.parse(text)
+            var weType = (proj.type || "scene").toLowerCase()
+            var weFile = proj.file || ""
+            var id = weId
+            var basePath = weDir + "/" + id
 
-    property string _pendingWeId: ""
-    property string _pendingWeOutputName: ""
-    property var _weProjectStdout: []
-    property var _weReadProject: Process {
-        id: weReadProject
-        onExited: {
-            var text = _weProjectStdout.join("")
-            try {
-                var proj = JSON.parse(text)
-                var weType = (proj.type || "scene").toLowerCase()
-                var weFile = proj.file || ""
-                var id = service._pendingWeId
-                var basePath = service.weDir + "/" + id
-
-                if (weType === "video" && weFile) {
-                    var videoPath = basePath + "/" + weFile
-                    _symLinkProcess.command = ["ln", "-sf", videoPath,
-                                               service.videoDir + "/lockscreen-video.mp4"]
-                    _symLinkProcess.running = true
-                    var opts = "loop"
-                    if (service.wallpaperMute) opts = "loop --mute=yes"
-                    var target = service._pendingWeOutputName || "*"
-                    var stopMpv = service._pendingWeOutputName
-                        ? "pkill -f " + JSON.stringify("mpvpaper[[:space:]]+" + service._pendingWeOutputName + "([[:space:]]|$)") + " 2>/dev/null; "
-                        : "pkill mpvpaper 2>/dev/null; "
-                    weProcess.command = ["sh", "-c",
-                        stopMpv +
-                        "nohup setsid mpvpaper -o '" + opts + "' " + JSON.stringify(target) + " " + JSON.stringify(videoPath) + " </dev/null >/dev/null 2>&1 &"]
-                    weProcess.running = true
-                } else {
-                    _launchWEScene(id, service._pendingWeOutputName)
-                }
-            } catch(e) {
-                service._launchWEScene(service._pendingWeId, service._pendingWeOutputName)
+            if (weType === "video" && weFile) {
+                var videoPath = basePath + "/" + weFile
+                _runProcessDynamic(["ln", "-sf", videoPath,
+                                    service.videoDir + "/lockscreen-video.mp4"])
+                var opts = "loop"
+                if (service.wallpaperMute) opts = "loop --mute=yes"
+                var target = output || "*"
+                var stopMpv = output
+                    ? "pkill -f " + JSON.stringify("mpvpaper[[:space:]]+" + output + "([[:space:]]|$)") + " 2>/dev/null; "
+                    : "pkill mpvpaper 2>/dev/null; "
+                var cmd = stopMpv + "nohup setsid mpvpaper -o '" + opts + "' " + JSON.stringify(target) + " " + JSON.stringify(videoPath) + " </dev/null >/dev/null 2>&1 &"
+                _runProcessDynamic(["sh", "-c", cmd])
+            } else {
+                _launchWEScene(id, output)
             }
-        }
-        stdout: SplitParser {
-            splitMarker: ""
-            onRead: data => _weProjectStdout.push(data)
+        } catch(e) {
+            _launchWEScene(weId, output)
         }
     }
-
-    property var _symLinkProcess: Process { id: symLinkProcess }
 
     function _launchWEScene(weId, outputName) {
         service._lastWeId = weId
         service._lastWeOutputName = service._resolveOutputName(outputName)
         var mons = service._lastWeOutputName ? [service._lastWeOutputName] : Quickshell.screens.map(function(s) { return s.name })
+        if (mons.length === 0) {
+            console.log("WallpaperApplyService: no monitors detected, skipping WE launch")
+            return
+        }
         var screenArgs = ""
         for (var i = 0; i < mons.length; i++)
-            screenArgs += " --screen-root " + JSON.stringify(mons[i]) + " --scaling fill --clamp border"
+            screenArgs += " --screen-root " + JSON.stringify(mons[i]) + " --bg " + JSON.stringify(weId) + " --scaling fill --clamp border"
         var propArgs = " --set-property bmomode=0"
         if (String(weId) === "3353695150") {
             propArgs += " --set-property showtext=0 --set-property pixelate=0 --set-property displaymode=2 --set-property audioresponsivebackground=0 --set-property audioresponsivebars=0"
@@ -411,10 +523,9 @@ QtObject {
         var cmd = "[ -x " + JSON.stringify(bin) + " ] || command -v " + JSON.stringify(bin) + " >/dev/null 2>&1 || exit 127; " +
             "nohup setsid " + JSON.stringify(bin) + " " + audioFlag +
             " --layer background --no-fullscreen-pause --noautomute" + propArgs + screenArgs +
-            assetsArg + " " + JSON.stringify(weId) + " </dev/null >/dev/null 2>&1 &"
+            assetsArg + " </dev/null >/dev/null 2>&1 &"
         console.log("WallpaperApplyService: launching WE scene:", cmd)
-        weProcess.command = ["sh", "-c", cmd]
-        weProcess.running = true
+        _runProcessDynamic(["sh", "-c", cmd])
     }
 
     function _applyWePreviewFallback(weId) {

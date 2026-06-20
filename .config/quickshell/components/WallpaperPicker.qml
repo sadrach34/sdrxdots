@@ -29,6 +29,18 @@ Scope {
     SkwdServices.WallpaperApplyService.restore()
   }
 
+  Variants {
+    model: Quickshell.screens
+    Item {
+      required property ShellScreen modelData
+      Component.onCompleted: {
+        if (modelData && modelData.name) {
+          SkwdServices.WallpaperApplyService.restoreScreen(modelData.name)
+        }
+      }
+    }
+  }
+
   Timer {
     id: autoChangeTimer
     running: Config.wallpaperAutoChangeEnabled
@@ -53,8 +65,6 @@ Scope {
     id: syncProc
     command: ["python3", Config.homeDir + "/.config/quickshell/scripts/python/wallpaper_sync.py"]
   }
-
-  onMainMonitorChanged: syncProc.running = true
 
   Connections {
     target: root

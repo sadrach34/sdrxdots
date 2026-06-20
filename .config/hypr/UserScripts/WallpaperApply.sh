@@ -146,6 +146,7 @@ resolve_we_paths() {
 }
 
 build_we_screen_args() {
+  local we_id="$1"
   if ! command -v hyprctl >/dev/null 2>&1; then
     return 0
   fi
@@ -155,12 +156,12 @@ build_we_screen_args() {
 
   local target="${WALL_OUTPUT:-}"
   if [[ -n "$target" && "$target" != "*" ]]; then
-    printf -- ' --screen-root %s --scaling fill --clamp border' "$target"
+    printf -- ' --screen-root %s --bg %s --scaling fill --clamp border' "$target" "$we_id"
     return 0
   fi
 
   hyprctl -j monitors 2>/dev/null | jq -r '.[].name // empty' 2>/dev/null | while IFS= read -r mon; do
-    [[ -n "$mon" ]] && printf -- ' --screen-root %s --scaling fill --clamp border' "$mon"
+    [[ -n "$mon" ]] && printf -- ' --screen-root %s --bg %s --scaling fill --clamp border' "$mon" "$we_id"
   done
 }
 
@@ -224,7 +225,7 @@ apply_we() {
   fi
 
   local screen_args assets_args
-  screen_args="$(build_we_screen_args)"
+  screen_args="$(build_we_screen_args "$we_id")"
   assets_args=""
   [[ -d "$WE_ASSETS_DIR" ]] && assets_args=" --assets-dir $(printf %q "$WE_ASSETS_DIR")"
 
@@ -234,7 +235,7 @@ apply_we() {
   fi
 
   # shellcheck disable=SC2086
-  nohup setsid "$WE_BIN" --layer background --silent --no-fullscreen-pause --noautomute --set-property bmomode=0 $screen_args $assets_args "$we_id" </dev/null >/dev/null 2>&1 &
+  nohup setsid "$WE_BIN" --layer background --silent --no-fullscreen-pause --noautomute --set-property bmomode=0 $screen_args $assets_args </dev/null >/dev/null 2>&1 &
 
   preview="$(find "$we_item_dir" -maxdepth 1 -type f \( -iname 'preview.jpg' -o -iname 'preview.png' -o -iname 'preview.gif' \) -print -quit 2>/dev/null || true)"
   if [[ -n "$preview" ]]; then

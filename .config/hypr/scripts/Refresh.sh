@@ -52,9 +52,9 @@ refresh_quickshell() {
     pkill -x qs 2>/dev/null
     sleep 0.2
     if command -v quickshell >/dev/null 2>&1; then
-        nohup quickshell > /dev/null 2>&1 &
+        nohup quickshell > /dev/null 2>&1 & disown
     elif command -v qs >/dev/null 2>&1; then
-        nohup qs > /dev/null 2>&1 &
+        nohup qs > /dev/null 2>&1 & disown
     fi
 }
 
@@ -83,7 +83,6 @@ refresh_all() {
     pkill ags
     
     refresh_quickshell
-    refresh_wallpaper
     refresh_waybar
     refresh_swaync
     refresh_borders

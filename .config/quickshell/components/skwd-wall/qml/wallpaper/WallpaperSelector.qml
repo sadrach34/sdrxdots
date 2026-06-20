@@ -15,8 +15,8 @@ Scope {
   property bool showing: false
   property alias selectedColorFilter: service.selectedColorFilter
   property alias selectorService: service
-  property string mainMonitor: Config.mainMonitor
-  readonly property string effectiveMonitor: mainMonitor || (selectorPanel.screen ? selectorPanel.screen.name : "")
+  property string mainMonitor: ""
+  readonly property string effectiveMonitor: (selectorPanel.screen ? selectorPanel.screen.name : "") || mainMonitor
   signal wallpaperChanged()
   signal uiReady()
 
