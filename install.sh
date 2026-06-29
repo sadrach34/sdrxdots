@@ -1071,6 +1071,14 @@ apply_sdrxdots() {
     rsync -a "$REPO_DIR/wallpapers/" "$HOME/wallpaper/"
     ok "Wallpapers sincronizados"
   fi
+
+  local sdrx_wall_dir="$REPO_DIR/assets/wallpapers"
+  if [[ -d "$sdrx_wall_dir" ]]; then
+    mkdir -p "$HOME/Pictures/wallpapers"
+    cp -n "$sdrx_wall_dir"/wallpapperSDRX*.png "$HOME/Pictures/wallpapers/" 2>/dev/null || true
+    touch "$HOME/.local/share/sdrxdots-default-wall-pending"
+    ok "Wallpapers SDRX copiados — se aplicaran al iniciar Hyprland"
+  fi
 }
 
 configure_terminal_best_effort() {
