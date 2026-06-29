@@ -25,9 +25,11 @@ unmute_wall() { mpv_send '{"command":["set_property","mute",false]}'; }
 
 check_and_apply() {
     [[ "$(wall_mute_enabled)" == "true" ]] && return
-    local cls
-    cls=$(hyprctl -j activewindow 2>/dev/null | jq -r '.class // ""' 2>/dev/null)
-    if [[ -n "$cls" && "$cls" != "null" ]]; then
+    local focused_ws win_ws win_cls
+    focused_ws=$(hyprctl -j monitors 2>/dev/null | jq -r '.[] | select(.focused) | .activeWorkspace.id' 2>/dev/null)
+    win_ws=$(hyprctl -j activewindow 2>/dev/null | jq -r '.workspace.id // ""' 2>/dev/null)
+    win_cls=$(hyprctl -j activewindow 2>/dev/null | jq -r '.class // ""' 2>/dev/null)
+    if [[ -n "$win_cls" && "$win_cls" != "null" && "$win_ws" == "$focused_ws" ]]; then
         mute_wall
     else
         unmute_wall
