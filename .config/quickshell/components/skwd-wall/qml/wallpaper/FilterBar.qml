@@ -41,7 +41,7 @@ Item {
     readonly property color _defaultChipBg: colors ? Qt.rgba(colors.surfaceContainer.r, colors.surfaceContainer.g, colors.surfaceContainer.b, 0.85) : Qt.rgba(0.1, 0.12, 0.18, 0.85)
     readonly property color _chipBg: _hasCustomBg ? _customBgRaw : _defaultChipBg
     readonly property real _chipLuma: (_chipBg.r * 0.2126) + (_chipBg.g * 0.7152) + (_chipBg.b * 0.0722)
-    readonly property real _chipAlpha: _chipBg.a > 0 ? _chipBg.a : 1.0
+    readonly property real _chipAlpha: _chipBg.a
     readonly property color _activeChipBg: _hasCustomBg
         ? (_chipLuma < 0.08
             ? Qt.rgba(0.84, 0.84, 0.84, _chipAlpha)
