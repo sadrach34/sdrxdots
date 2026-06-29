@@ -456,7 +456,7 @@ install_core_desktop() {
   pacman_install \
     hyprland hypridle hyprlock \
     hyprpolkitagent xdg-desktop-portal-hyprland \
-    waybar swaync awww power-profiles-daemon
+    waybar swaync awww power-profiles-daemon mpvpaper
 
   ensure_yay
   install_quickshell
@@ -608,10 +608,6 @@ install_animation_stack() {
   if [[ "$WITH_WE" == "yes" ]]; then
     ensure_yay
     yay_install linux-wallpaperengine-git
-  fi
-
-  if [[ "$WITH_VIDEOWALL" == "yes" ]]; then
-    pacman_install mpvpaper
   fi
 
   ok "Stack de animaciones instalado"

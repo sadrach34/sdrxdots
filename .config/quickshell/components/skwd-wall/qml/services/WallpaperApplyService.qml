@@ -18,7 +18,7 @@ QtObject {
     readonly property string ollamaModel: Config.ollamaModel
     property string targetOutputName: ""
     property string matugenScheme: "scheme-fidelity"
-    property bool wallpaperMute: true
+    property bool wallpaperMute: Config.wallpaperMute
     readonly property string _matugenConfig: cacheDir + "/matugen-config.toml"
     readonly property var _transitionCfg: Config._data && Config._data.wallpaperTransition ? Config._data.wallpaperTransition : ({})
     property bool _stateFileLoaded: false
@@ -50,8 +50,6 @@ QtObject {
         if (data.matugen) {
             if (data.matugen.schemeType) matugenScheme = data.matugen.schemeType
         }
-        if (data.wallpaperMute !== undefined) wallpaperMute = data.wallpaperMute
-
         // Ensure last wallpaper is restored after session startup.
         _restoreRequested = true
         _tryRestore()
@@ -128,10 +126,12 @@ QtObject {
                       "pkill mpvpaper 2>/dev/null; " +
                       "pkill -9 -f '[l]inux-wallpaperengine' 2>/dev/null; "
                 var target = output || "*"
+                var _sockName = "/tmp/mpv-wall-" + target.replace(/[^a-zA-Z0-9]/g, "_") + ".sock"
+                var _mpvOpts = "loop" + (wallpaperMute ? " --mute=yes" : "") + " --input-ipc-server=" + _sockName
                 mpvProcess.command = ["sh", "-c",
                     stopCmd +
                     "rm -f " + JSON.stringify(videoDir + "/lockscreen-video.mp4") + "; " +
-                    "nohup setsid mpvpaper -o " + (wallpaperMute ? "'loop --mute=yes'" : "'loop'") + " " + JSON.stringify(target) + " " + JSON.stringify(path) + " </dev/null >/dev/null 2>&1 &"]
+                    "nohup setsid mpvpaper -o " + JSON.stringify(_mpvOpts) + " " + JSON.stringify(target) + " " + JSON.stringify(path) + " </dev/null >/dev/null 2>&1 &"]
                 mpvProcess.running = true
                 _extractVideoThumb(path)
                 wallpaperApplied("video", _basename(path))
@@ -484,13 +484,13 @@ QtObject {
                 var videoPath = basePath + "/" + weFile
                 _runProcessDynamic(["ln", "-sf", videoPath,
                                     service.videoDir + "/lockscreen-video.mp4"])
-                var opts = "loop"
-                if (service.wallpaperMute) opts = "loop --mute=yes"
                 var target = output || "*"
+                var _weSockName = "/tmp/mpv-wall-" + target.replace(/[^a-zA-Z0-9]/g, "_") + ".sock"
+                var opts = "loop" + (service.wallpaperMute ? " --mute=yes" : "") + " --input-ipc-server=" + _weSockName
                 var stopMpv = output
                     ? "pkill -f " + JSON.stringify("mpvpaper[[:space:]]+" + output + "([[:space:]]|$)") + " 2>/dev/null; "
                     : "pkill mpvpaper 2>/dev/null; "
-                var cmd = stopMpv + "nohup setsid mpvpaper -o '" + opts + "' " + JSON.stringify(target) + " " + JSON.stringify(videoPath) + " </dev/null >/dev/null 2>&1 &"
+                var cmd = stopMpv + "nohup setsid mpvpaper -o " + JSON.stringify(opts) + " " + JSON.stringify(target) + " " + JSON.stringify(videoPath) + " </dev/null >/dev/null 2>&1 &"
                 _runProcessDynamic(["sh", "-c", cmd])
             } else {
                 _launchWEScene(id, output)
