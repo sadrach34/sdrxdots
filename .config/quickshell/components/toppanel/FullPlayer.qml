@@ -44,7 +44,21 @@ Rectangle {
 
     function refreshPlayers() {
         var vals = Mpris.players.values
-        playersList = vals ? vals.slice() : []
+        var filtered = []
+        if (vals) {
+            for (var j = 0; j < vals.length; j++) {
+                var p = vals[j]
+                if (!p) continue
+                var id = ((p.desktopEntry ?? "") + (p.identity ?? "")).toLowerCase()
+                // Ignorar mpv, mpvpaper, linux-wallpaperengine y variaciones del motor de fondos
+                if (id.includes("mpv") || id.includes("wallpaperengine") || id.includes("wallpaper-engine")) {
+                    continue
+                }
+                filtered.push(p)
+            }
+        }
+        playersList = filtered
+
         // apuntar al que reproduzca activamente
         for (var i = 0; i < playersList.length; i++) {
             if (playersList[i].playbackState === MprisPlaybackState.Playing) {

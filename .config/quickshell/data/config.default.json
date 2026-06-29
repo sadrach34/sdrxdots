@@ -9,9 +9,9 @@
     "steamWeAssets": "~/.local/share/Steam/steamapps/common/wallpaper_engine/assets",
     "steam": "~/.local/share/Steam"
   },
-  "monitor": "DP-1",
+  "monitor": "eDP-1",
   "secondary_monitor": "auto",
-  "monitors_list": ["DP-1", "HDMI-A-1"],
+  "monitors_list": ["eDP-1", "eDP-1"],
   "paths": {
 
     "url": "http://localhost:11434",

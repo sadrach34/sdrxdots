@@ -466,6 +466,13 @@ Item {
           onSelect: function(v) { settingsPanel._saveConfigKey("colorSource", v) }
         }
 
+        SettingsToggle {
+          colors: settingsPanel.colors
+          label: "Mute wallpaper audio"
+          checked: Config.wallpaperMute
+          onToggle: function(v) { settingsPanel._saveConfigKey("wallpaperMute", v) }
+        }
+
         Item { width: 1; height: 6 }
 
         Text {
@@ -849,13 +856,6 @@ Item {
           text: "OTHER"
           font.family: Style.fontFamily; font.pixelSize: 13; font.weight: Font.Bold; font.letterSpacing: 1.5
           color: settingsPanel.colors ? settingsPanel.colors.tertiary : Qt.rgba(1, 1, 1, 0.5)
-        }
-
-        SettingsToggle {
-          colors: settingsPanel.colors
-          label: "Mute wallpaper audio"
-          checked: Config.wallpaperMute
-          onToggle: function(v) { settingsPanel._saveConfigKey("wallpaperMute", v) }
         }
 
         SettingsToggle {

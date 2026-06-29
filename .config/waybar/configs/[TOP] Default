@@ -2,7 +2,7 @@
 [
   {
     // Bar 1: Main monitor (Primary)
-    "output": "DP-1",
+    "output": "eDP-1",
     "include": [
       "$HOME/.config/waybar/Modules",
       "$HOME/.config/waybar/ModulesWorkspaces",
@@ -48,7 +48,7 @@
       "custom/separator#line",
       "group/audio",
       "custom/separator#dot-line",
-      "custom/qs_dashboard"
+      "battery", "custom/qs_dashboard"
     ]
   },
   {
@@ -94,7 +94,7 @@
       "custom/separator#dot-line",
       "group/audio",
       "custom/separator#dot-line",
-      "custom/qs_dashboard"
+      "battery", "custom/qs_dashboard"
     ]
   }
 ]

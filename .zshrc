@@ -2,8 +2,6 @@
 # export PATH=$HOME/bin:/usr/local/bin:$PATH
 export PATH="$HOME/.local/bin:$PATH"
 
-cd "$HOME"
-
 export ZSH="$HOME/.oh-my-zsh"
 export MOZ_ENABLE_WAYLAND=1
 export PATH=~/.npm-global/bin:$PATH
@@ -230,3 +228,7 @@ case ":$PATH:" in
   *) export PATH="$PNPM_HOME:$PATH" ;;
 esac
 # pnpm end
+
+
+# Added by Antigravity CLI installer
+export PATH="/home/sadrach/.local/bin:$PATH"

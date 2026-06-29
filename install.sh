@@ -179,12 +179,12 @@ load_previous_option_defaults() {
 
   if [[ "$WITH_WE" == "auto" ]]; then
     prev="$(read_marker_value we)"
-    [[ "$prev" =~ ^(yes|no)$ ]] && WITH_WE="$prev"
+    [[ "$prev" =~ ^(yes|no)$ ]] && WITH_WE="$prev" || true
   fi
 
   if [[ "$WITH_VIDEOWALL" == "auto" ]]; then
     prev="$(read_marker_value videowall)"
-    [[ "$prev" =~ ^(yes|no)$ ]] && WITH_VIDEOWALL="$prev"
+    [[ "$prev" =~ ^(yes|no)$ ]] && WITH_VIDEOWALL="$prev" || true
   fi
 }
 
@@ -275,15 +275,35 @@ select_optional_modules() {
     fi
   fi
 
-  if [[ "$WITH_WE" == "auto" ]]; then
+  if [[ "$WITH_WE" == "auto" && "$WITH_VIDEOWALL" == "auto" ]]; then
+    local wall_choice=""
+    if $ASSUME_YES; then
+      wall_choice="3"
+    else
+      echo -e "${YELLOW}Wallpapers animados — elige una opcion:${NC}"
+      echo -e "  ${CYAN}1)${NC} Ambos (Wallpaper Engine + mpvpaper)"
+      echo -e "  ${CYAN}2)${NC} Wallpaper Engine via Steam${NC}"
+      echo -e "  ${CYAN}3)${NC} mpvpaper — videos locales (mp4, mov, mkv…)"
+      echo -e "  ${CYAN}4)${NC} Ninguno"
+      while [[ ! "$wall_choice" =~ ^[1-4]$ ]]; do
+        read -rp "$(echo -e "${YELLOW}Opcion [1-4]: ${NC}")" wall_choice
+      done
+    fi
+    case "$wall_choice" in
+      1) WITH_WE="yes"; WITH_VIDEOWALL="yes" ;;
+      2) WITH_WE="yes"; WITH_VIDEOWALL="no"
+         echo -e "${CYAN}INFO: Descarga Wallpaper Engine en Steam (app 431960). linux-wallpaperengine se instala automaticamente.${NC}"
+         ;;
+      3) WITH_WE="no"; WITH_VIDEOWALL="yes" ;;
+      4) WITH_WE="no"; WITH_VIDEOWALL="no" ;;
+    esac
+  elif [[ "$WITH_WE" == "auto" ]]; then
     if ask_yes_no "Instalar soporte para Wallpaper Engine (Steam Workshop)?" false; then
       WITH_WE="yes"
     else
       WITH_WE="no"
     fi
-  fi
-
-  if [[ "$WITH_VIDEOWALL" == "auto" ]]; then
+  elif [[ "$WITH_VIDEOWALL" == "auto" ]]; then
     if ask_yes_no "Instalar soporte para fondos de pantalla animados (videos)?" false; then
       WITH_VIDEOWALL="yes"
     else
@@ -456,7 +476,7 @@ install_core_desktop() {
   pacman_install \
     hyprland hypridle hyprlock \
     hyprpolkitagent xdg-desktop-portal-hyprland \
-    waybar swaync awww power-profiles-daemon
+    waybar swaync awww power-profiles-daemon mpvpaper
 
   ensure_yay
   install_quickshell
@@ -608,10 +628,6 @@ install_animation_stack() {
   if [[ "$WITH_WE" == "yes" ]]; then
     ensure_yay
     yay_install linux-wallpaperengine-git
-  fi
-
-  if [[ "$WITH_VIDEOWALL" == "yes" ]]; then
-    pacman_install mpvpaper
   fi
 
   ok "Stack de animaciones instalado"
@@ -809,10 +825,13 @@ EOF
 
   ok "Modo programador listo"
 }
-
 backup_target() {
   local src="$1"
   local dst="$2"
+
+  if [[ ! -e "$src" && ! -L "$src" ]]; then
+    return 0
+  fi
 
   if [[ -e "$dst" || -L "$dst" ]]; then
     local ts rel backup
@@ -820,13 +839,12 @@ backup_target() {
     rel="${dst#${HOME}/}"
     backup="$BACKUP_ROOT/$ts/$rel"
     mkdir -p "$(dirname "$backup")"
-    mv "$dst" "$backup"
+    mv "$dst" "$backup" 2>/dev/null || cp -a "$dst" "$backup" 2>/dev/null || true
     warn "Backup: $dst -> $backup"
   fi
 
   mkdir -p "$(dirname "$dst")"
-  cp -a "$src" "$dst"
-  ok "Aplicado: $dst"
+  cp -a "$src" "$dst" 2>/dev/null || true
 }
 
 sync_directory_contents() {
@@ -875,15 +893,157 @@ cleanup_hypr_version_markers_best_effort() {
   ok "Version Hypr activa: $desired_marker"
 }
 
+detect_monitor_info() {
+  if command -v hyprctl >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+    hyprctl monitors -j
+  else
+    echo "[]"
+  fi
+}
+
+configure_monitors_dynamically() {
+  section "Configuracion de monitores (dinamica)"
+
+  local monitors_json
+  monitors_json=$(detect_monitor_info)
+  local count
+  count=$(echo "$monitors_json" | jq '. | length' 2>/dev/null || echo "0")
+
+  if [[ "$count" == "0" ]]; then
+    warn "No se pudo detectar informacion de monitores via hyprctl + jq."
+    return
+  fi
+
+  local m1_name m1_res m1_hz
+  m1_name=$(echo "$monitors_json" | jq -r '.[0].name')
+  m1_res="$(echo "$monitors_json" | jq -r '.[0].width')x$(echo "$monitors_json" | jq -r '.[0].height')"
+  m1_hz=$(echo "$monitors_json" | jq -r '.[0].refreshRate' | awk '{printf "%.2f", $1}')
+
+  info "Monitor primario: $m1_name ($m1_res @ $m1_hz Hz)"
+
+  local m2_name="disabled"
+  local m2_res=""
+  local m2_hz=""
+
+  if [[ $count -gt 1 ]]; then
+    m2_name=$(echo "$monitors_json" | jq -r '.[1].name')
+    m2_res="$(echo "$monitors_json" | jq -r '.[1].width')x$(echo "$monitors_json" | jq -r '.[1].height')"
+    m2_hz=$(echo "$monitors_json" | jq -r '.[1].refreshRate' | awk '{printf "%.2f", $1}')
+    info "Monitor secundario detectado: $m2_name ($m2_res @ $m2_hz Hz)"
+  fi
+
+  # 1. Hyprland monitors.conf
+  local mon_conf="$HOME/.config/hypr/monitors.conf"
+  {
+    echo "# Generated dynamically by SdrxDots installer"
+    echo "monitor=$m1_name,${m1_res}@${m1_hz},0x0,1"
+    if [[ "$m2_name" != "disabled" ]]; then
+      echo "monitor=$m2_name,${m2_res}@${m2_hz},${m1_res},1"
+    fi
+  } > "$mon_conf"
+
+  # 2. Hyprland UserDefaults.conf
+  local user_defaults="$HOME/.config/hypr/UserConfigs/01-UserDefaults.conf"
+  if [[ -f "$user_defaults" ]]; then
+    sed -i "s|^\$main_monitor\s*=.*|\$main_monitor = $m1_name|" "$user_defaults"
+    sed -i "s|^\$secondary_monitor\s*=.*|\$secondary_monitor = $m2_name|" "$user_defaults"
+  fi
+
+  # 3. Quickshell config.json
+  local qs_conf="$HOME/.config/quickshell/data/config.json"
+  local qs_default="$HOME/.config/quickshell/data/config.default.json"
+  if [[ ! -f "$qs_conf" && -f "$qs_default" ]]; then
+    info "Creando config.json desde plantilla..."
+    cp "$qs_default" "$qs_conf"
+  fi
+  if [[ -f "$qs_conf" ]]; then
+    sed -i "s/\"monitor\":\s*\"[^\"]*\"/\"monitor\": \"$m1_name\"/" "$qs_conf"
+    sed -i "s/\"secondary_monitor\":\s*\"[^\"]*\"/\"secondary_monitor\": \"$m2_name\"/" "$qs_conf"
+    if [[ "$m2_name" == "disabled" ]]; then
+      sed -i "s/\"monitors_list\":\s*\[[^]]*\]/\"monitors_list\": [\"$m1_name\"]/" "$qs_conf"
+    else
+      sed -i "s/\"monitors_list\":\s*\[[^]]*\]/\"monitors_list\": [\"$m1_name\", \"$m2_name\"]/" "$qs_conf"
+    fi
+  fi
+
+  # 5. Hyprland workspaces.conf
+  local ws_conf="$HOME/.config/hypr/workspaces.conf"
+  local ws_default="$HOME/.config/hypr/workspaces.conf.example"
+  if [[ ! -f "$ws_conf" ]]; then
+    if [[ -f "$ws_default" ]]; then
+      info "Creando workspaces.conf desde plantilla..."
+      cp "$ws_default" "$ws_conf"
+      # Configurar el monitor principal en el archivo recién creado
+      sed -i "s/monitor:eDP-1/monitor:$m1_name/g" "$ws_conf"
+    else
+      info "Creando workspaces.conf vacío..."
+      touch "$ws_conf"
+    fi
+  fi
+
+  # 6. Quickshell positions.json
+  local pos_conf="$HOME/.config/quickshell/components/ModernClockWidget/positions.json"
+  local pos_bak="$HOME/.config/quickshell/components/ModernClockWidget/positions.json.bak"
+  local pos_default="$HOME/.config/quickshell/components/ModernClockWidget/positions.json.example"
+  if [[ ! -f "$pos_conf" ]]; then
+    if [[ -f "$pos_bak" ]]; then
+      info "Restaurando positions.json desde positions.json.bak..."
+      cp "$pos_bak" "$pos_conf"
+    elif [[ -f "$pos_default" ]]; then
+      info "Creando positions.json desde plantilla..."
+      cp "$pos_default" "$pos_conf"
+    fi
+  fi
+
+  # 4. Waybar
+  local wb_conf="$HOME/.config/waybar/configs/[TOP] Default"
+  if [[ -f "$wb_conf" ]]; then
+    info "Actualizando template de Waybar..."
+    # Actualizar outputs
+    sed -i "0,/\"output\":\s*\"[^\"]*\"/s//\"output\": \"$m1_name\"/" "$wb_conf"
+    if [[ "$m2_name" != "disabled" ]]; then
+      if grep -q "Bar 2: Secondary monitor" "$wb_conf"; then
+        sed -i "/Bar 2: Secondary monitor/,/\"output\":/s/\"output\":\s*\"[^\"]*\"/\"output\": \"$m2_name\"/" "$wb_conf"
+      fi
+    fi
+
+    # Si es laptop, asegurar modulo bateria en el template si no esta
+    if [[ "$WITH_LAPTOP" == "yes" ]]; then
+      if ! grep -q '"battery"' "$wb_conf"; then
+        info "Agregando modulo bateria al template de Waybar..."
+        sed -i 's/"custom\/qs_dashboard"/"battery", "custom\/qs_dashboard"/g' "$wb_conf"
+      fi
+    fi
+  fi
+
+  ok "Configuracion de monitores finalizada para $m1_name"
+}
+
 apply_sdrxdots() {
   section "Aplicando SdrxDots"
   mkdir -p "$BACKUP_ROOT"
+
+  # Copia de seguridad preventiva de positions.json del usuario antes de cualquier cambio
+  local user_pos="$HOME/.config/quickshell/components/ModernClockWidget/positions.json"
+  if [[ -f "$user_pos" ]]; then
+    info "Creando copia de seguridad preventiva de positions.json..."
+    # 1. Copia local .bak (que ya está excluida de Git)
+    cp "$user_pos" "$user_pos.bak"
+    # 2. Copia en la carpeta de copias de seguridad global con timestamp
+    local ts=$(date +%Y%m%d_%H%M%S)
+    mkdir -p "$BACKUP_ROOT/$ts/ModernClockWidget"
+    cp "$user_pos" "$BACKUP_ROOT/$ts/ModernClockWidget/positions.json"
+    ok "Copia de seguridad guardada en $user_pos.bak y $BACKUP_ROOT/$ts/"
+  fi
 
   [[ -d "$REPO_DIR/.config" ]] || error "No existe $REPO_DIR/.config"
 
   info "Sincronizando .config"
   sync_directory_contents "$REPO_DIR/.config" "$HOME/.config"
   cleanup_hypr_version_markers_best_effort
+
+  # Aplicar deteccion de monitores sobre los archivos ya copiados al HOME
+  configure_monitors_dynamically
 
   # Crear UserLauncherBinds.conf desde base si no existe
   local launcher_base="$HOME/.config/hypr/UserConfigs/UserLauncherBinds.conf.base"
@@ -910,6 +1070,14 @@ apply_sdrxdots() {
     mkdir -p "$HOME/wallpaper"
     rsync -a "$REPO_DIR/wallpapers/" "$HOME/wallpaper/"
     ok "Wallpapers sincronizados"
+  fi
+
+  local sdrx_wall_dir="$REPO_DIR/assets/wallpapers"
+  if [[ -d "$sdrx_wall_dir" ]]; then
+    mkdir -p "$HOME/Pictures/wallpapers"
+    cp -n "$sdrx_wall_dir"/wallpapperSDRX*.png "$HOME/Pictures/wallpapers/" 2>/dev/null || true
+    touch "$HOME/.local/share/sdrxdots-default-wall-pending"
+    ok "Wallpapers SDRX copiados — se aplicaran al iniciar Hyprland"
   fi
 }
 
