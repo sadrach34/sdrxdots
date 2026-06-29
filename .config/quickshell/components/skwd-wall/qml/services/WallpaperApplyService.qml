@@ -515,7 +515,7 @@ QtObject {
         if (String(weId) === "3353695150") {
             propArgs += " --set-property showtext=0 --set-property pixelate=0 --set-property displaymode=2 --set-property audioresponsivebackground=0 --set-property audioresponsivebars=0"
         }
-        var audioFlag = service.wallpaperMute ? "--silent" : ""
+        var audioFlag = "--silent"
         var assetsArg = service.weAssetsDir ? (" --assets-dir " + JSON.stringify(service.weAssetsDir)) : ""
         var bin = service.weBinary && service.weBinary.length > 0
             ? service.weBinary
