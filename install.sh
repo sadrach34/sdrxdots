@@ -275,15 +275,35 @@ select_optional_modules() {
     fi
   fi
 
-  if [[ "$WITH_WE" == "auto" ]]; then
+  if [[ "$WITH_WE" == "auto" && "$WITH_VIDEOWALL" == "auto" ]]; then
+    local wall_choice=""
+    if $ASSUME_YES; then
+      wall_choice="3"
+    else
+      echo -e "${YELLOW}Wallpapers animados — elige una opcion:${NC}"
+      echo -e "  ${CYAN}1)${NC} Ambos (Wallpaper Engine + mpvpaper)"
+      echo -e "  ${CYAN}2)${NC} Wallpaper Engine via Steam${NC}"
+      echo -e "  ${CYAN}3)${NC} mpvpaper — videos locales (mp4, mov, mkv…)"
+      echo -e "  ${CYAN}4)${NC} Ninguno"
+      while [[ ! "$wall_choice" =~ ^[1-4]$ ]]; do
+        read -rp "$(echo -e "${YELLOW}Opcion [1-4]: ${NC}")" wall_choice
+      done
+    fi
+    case "$wall_choice" in
+      1) WITH_WE="yes"; WITH_VIDEOWALL="yes" ;;
+      2) WITH_WE="yes"; WITH_VIDEOWALL="no"
+         echo -e "${CYAN}INFO: Descarga Wallpaper Engine en Steam (app 431960). linux-wallpaperengine se instala automaticamente.${NC}"
+         ;;
+      3) WITH_WE="no"; WITH_VIDEOWALL="yes" ;;
+      4) WITH_WE="no"; WITH_VIDEOWALL="no" ;;
+    esac
+  elif [[ "$WITH_WE" == "auto" ]]; then
     if ask_yes_no "Instalar soporte para Wallpaper Engine (Steam Workshop)?" false; then
       WITH_WE="yes"
     else
       WITH_WE="no"
     fi
-  fi
-
-  if [[ "$WITH_VIDEOWALL" == "auto" ]]; then
+  elif [[ "$WITH_VIDEOWALL" == "auto" ]]; then
     if ask_yes_no "Instalar soporte para fondos de pantalla animados (videos)?" false; then
       WITH_VIDEOWALL="yes"
     else
