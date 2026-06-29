@@ -611,7 +611,7 @@ QtObject {
       "fi\n" +
       "command -v jq >/dev/null 2>&1 || exit 0\n" +
       "tmp=\"$(mktemp)\"\n" +
-      "jq --argjson keys \"$keys_json\" 'def defaults: {enabled:false,centerOnScreen:false,centerX:false,centerY:false,x:0,y:0,daySize:90,dateSize:20,timeSize:17}; def normalize($d): defaults + $d; ((if (type == \"object\") then . else {} end) as $root | ($keys | map(select((type==\"string\") and (length>0))) | unique) as $valid | ($root.default // {} | normalize(.)) as $d | ($root + {default:$d}) as $seed | ($seed | with_entries(select(.key == \"default\" or (.key as $k | ($valid | index($k)) != null)))) | reduce $valid[] as $k (. ; .[$k] = ((.[ $k ] // $d) | normalize(.))))' \"$file\" > \"$tmp\"\n" +
+      "jq --argjson keys \"$keys_json\" 'def defaults: {enabled:false,centerOnScreen:false,centerX:false,centerY:false,x:0,y:0,daySize:90,dateSize:20,timeSize:17}; def normalize($d): defaults + $d; ((if (type == \"object\") then . else {} end) as $root | ($keys | map(select((type==\"string\") and (length>0))) | unique) as $valid | ($root.default // {} | normalize(.)) as $d | ($root + {default:$d}) | reduce $valid[] as $k (. ; .[$k] = ((.[$k] // $d) | normalize(.))))' \"$file\" > \"$tmp\"\n" +
       "mv \"$tmp\" \"$file\"\n",
       "_", service.clockPositionsFile, service._clockSyncKeysJson]
     onExited: {
