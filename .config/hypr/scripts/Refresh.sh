@@ -82,6 +82,7 @@ refresh_all() {
     pkill rofi
     pkill ags
     
+    hyprctl reload
     refresh_quickshell
     refresh_waybar
     refresh_swaync
